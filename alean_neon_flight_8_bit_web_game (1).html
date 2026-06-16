@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ALEAN: Neon Flight — 8‑bit Flappy x Galaga (Futuristic City)</title>
+<style>
+  html, body { height: 100%; margin: 0; background:#140026; }
+  body { display: grid; place-items: center; font-family: ui-sans-serif, system-ui, Segoe UI, Roboto, Arial; color: #d7d2ff; }
+  .frame { position: relative; display: inline-block; padding: 14px; border-radius: 16px; background: radial-gradient(120% 120% at 50% -10%, #2a0f44, #140026 60%); box-shadow: 0 10px 30px rgba(0,0,0,.6), inset 0 0 0 2px rgba(255,255,255,.05); }
+  #game { image-rendering: pixelated; width: min(92vw, 960px); height: auto; display:block; background:#0b0020; border-radius: 8px; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <canvas id="game" width="256" height="144"></canvas>
+</div>
+<script>
+(function(){
+  const W=256,H=144,canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+  ctx.imageSmoothingEnabled=false;
+  const COL={bg:'#0a0018',horizon1:'#24004e',horizon2:'#0b0120',cityA:'#1a0b3b',cityB:'#23105a',cityC:'#2e1376',windowA:'#2b6bb2',windowB:'#3aa3e6',neonP:'#b46cff',neonG:'#7de3a1',text:'#d8e1ff'};
+
+  // ======= Audio =======
+  let ac, musicNodes=[]; function ensureAudio(){ ac = ac || new (window.AudioContext||window.webkitAudioContext)(); }
+  function sfx(freq,dur,type='square',vol=0.05){ if(!ac) return; const t=ac.currentTime; const o=ac.createOscillator(); const g=ac.createGain(); o.type=type; o.frequency.setValueAtTime(freq,t); g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(g).connect(ac.destination); o.start(t); o.stop(t+dur); }
+  function startMusic(){ if(!ac) return; stopMusic(); const t0=ac.currentTime; const tempo=92/60; // mellow alien loop
+    const scale=[0,3,5,7,10,12];
+    for(let i=0;i<128;i++){
+      const t=t0+i*0.5/tempo; const o=ac.createOscillator(); const g=ac.createGain();
+      const note=220*Math.pow(2,(scale[i%scale.length]+(i%16===0?12:0))/12);
+      o.type=(i%8<6)?'triangle':'square'; o.frequency.setValueAtTime(note,t);
+      g.gain.setValueAtTime(i%4==0?0.03:0.015,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.45/tempo);
+      o.connect(g).connect(ac.destination); o.start(t); o.stop(t+0.5/tempo); musicNodes.push(o,g);
+    }
+  }
+  function stopMusic(){ while(musicNodes.length){ const n=musicNodes.pop(); try{ n.disconnect(); }catch{} }
+  }
+
+  // ======= Game State =======
+  let state=0,t=0,score=0,kills=0,hearts=3,best=+localStorage.getItem('alean_best')||0,scroll=0,speed=0.9;
+  const G=0.18,FLAP=-2.75,MAX_DY=3.2;
+  const player={x:44,y:H/2,vy:0,w:18,h:12};
+
+  // projectiles
+  const purpleLasers=[], greenBombs=[], enemies=[], fx=[]; // fx = particles
+
+  const keys={};
+  addEventListener('keydown',(e)=>{
+    const key=e.key.toLowerCase(); keys[key]=true; if(e.code==='Space') keys[' ']=true; if(!ac) ensureAudio();
+    if(state===0 && (e.code==='Space'||key==='enter')) startGame();
+    if(state===3 && (key==='r'||key==='enter'||e.code==='Space')) startGame();
+  });
+  addEventListener('keyup',(e)=>{ keys[e.key.toLowerCase()]=false; if(e.code==='Space') keys[' ']=false; });
+
+  function startGame(){ state=1; score=0; kills=0; hearts=3; scroll=0; speed=0.9; player.y=H/2; player.vy=0; enemies.length=0; purpleLasers.length=0; greenBombs.length=0; fx.length=0; startMusic(); }
+  function flap(){ if(state!==1) return; player.vy=FLAP; sfx(640,0.07); }
+  function shootPurple(){ if(state!==1) return; purpleLasers.push({x:player.x+player.w,y:player.y+5,vx:2.6,w:4,h:2,life:220}); sfx(980,0.05); }
+  function shootGreenBomb(){ if(state!==1) return; greenBombs.push({x:player.x+player.w-2,y:player.y+4,vx:1.2,vy:-0.6,ay:0.08,w:3,h:3}); sfx(420,0.08,'triangle'); }
+
+  function spawnEnemy(){ const y=Math.random()*(H-24)+6; enemies.push({x:W+20,y,w:16,h:10,vx:-1.2}); }
+
+  function boom(x,y,color='mix'){
+    for(let i=0;i<18;i++) fx.push({x,y,vx:(Math.random()*2-1)*1.3,vy:(Math.random()*2-1)*1.3,t:0,life:14+Math.random()*10,color});
+    sfx(220,0.12,'sawtooth',0.06);
+  }
+
+  function explodeRadius(cx,cy,r){ // kill enemies within radius
+    let destroyed=0; for(let j=enemies.length-1;j>=0;j--){ const e=enemies[j]; const dx=(e.x+e.w/2)-cx, dy=(e.y+e.h/2)-cy; if(dx*dx+dy*dy<=r*r){ enemies.splice(j,1); destroyed++; boom(cx,cy); }}
+    if(destroyed>0){ score+=destroyed; kills+=destroyed; if(kills%3===0) hearts++; }
+  }
+
+  function update(){ requestAnimationFrame(update); t++;
+    if(state!==1){ drawMenuOrOverlays(); return; }
+
+    scroll+=speed; player.vy=Math.min(MAX_DY,player.vy+G); player.y+=player.vy;
+    const groundY=H-player.h; if(player.y>groundY){ player.y=groundY; if(player.vy>0) player.vy=0; }
+    if(player.y<0){ player.y=0; if(player.vy<0) player.vy=0; }
+
+    if(keys[' ']||keys['w']||keys['arrowup']){ flap(); keys[' ']=keys['w']=keys['arrowup']=false; }
+    if(keys['l']){ shootPurple(); keys['l']=false; }
+    if(keys['k']){ shootGreenBomb(); keys['k']=false; }
+
+    // projectiles
+    for(let i=purpleLasers.length-1;i>=0;i--){ const b=purpleLasers[i]; b.x+=b.vx; if(--b.life<=0||b.x>W+8) purpleLasers.splice(i,1); }
+    for(let i=greenBombs.length-1;i>=0;i--){ const g=greenBombs[i]; g.x+=g.vx; g.vy+=g.ay; g.y+=g.vy; if(g.y>H+6) { greenBombs.splice(i,1); continue; } // off screen
+      // bomb–enemy hit check
+      for(let j=enemies.length-1;j>=0;j--){ const e=enemies[j]; if(rectHit(g,e)){ enemies.splice(j,1); greenBombs.splice(i,1); score++; kills++; if(kills%3===0) hearts++; explodeRadius(e.x+e.w/2,e.y+e.h/2,34); break; }
+      }
+    }
+
+    // enemies
+    if(t%Math.max(32,140-Math.floor(t/240)*10)===0) spawnEnemy();
+    for(const e of enemies) e.x+=e.vx;
+
+    // Purple laser collisions
+    for(let i=purpleLasers.length-1;i>=0;i--){ const b=purpleLasers[i];
+      for(let j=enemies.length-1;j>=0;j--){ const e=enemies[j]; if(rectHit(b,e)){ purpleLasers.splice(i,1); enemies.splice(j,1); score++; kills++; boom(e.x+e.w/2,e.y+e.h/2,'purple'); if(kills%3===0) hearts++; break; }
+      }
+    }
+
+    // player collided
+    for(let j=enemies.length-1;j>=0;j--){ const e=enemies[j]; if(rectHit(player,e)){ enemies.splice(j,1); hearts--; boom(player.x+player.w/2,player.y+player.h/2,'hit'); sfx(120,0.15,'square'); if(hearts<=0){ state=3; best=Math.max(best,score); localStorage.setItem('alean_best',best); stopMusic(); } }
+    }
+
+    // fx life
+    for(let i=fx.length-1;i>=0;i--){ const p=fx[i]; p.t++; p.x+=p.vx; p.y+=p.vy; if(p.t>p.life) fx.splice(i,1); }
+
+    draw();
+  }
+
+  function rectHit(a,b){ return a.x<a.w+b.x && a.x+(a.w||3)>b.x && a.y<a.h+b.y && a.y+(a.h||2)>b.y; }
+
+  // ======= Background City =======
+  const city3D=Array.from({length:70},()=>({x:rand(-500,500),z:rand(60,420),h:rand(50,220),w:rand(12,32)}));
+  function clearSky(){ const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,COL.horizon1); g.addColorStop(1,COL.horizon2); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); }
+  function drawCity3D(){ const f=120,camX=scroll*0.6; for(const b of city3D){ b.z-=0.5; if(b.z<40){ b.z=420; b.x=rand(-500,500); } const sx=(W/2+((b.x-camX)/b.z)*f)|0; const scale=Math.max(0.25,1/(0.015*b.z+0.6)); const sw=(b.w*scale)|0,sh=(b.h*scale)|0,baseY=(H-10-(b.z*0.03))|0; ctx.fillStyle=b.z>300?COL.cityA:b.z>180?COL.cityB:COL.cityC; ctx.fillRect(sx-(sw>>1),baseY-sh,sw,sh); ctx.fillStyle=b.z>200?COL.windowA:COL.windowB; for(let wy=baseY-sh+6;wy<baseY-4;wy+=8){ if(Math.random()<0.35) ctx.fillRect(sx-(sw>>1)+2+((wy*17)%Math.max(2,sw-4)),wy,1,1); } } }
+
+  // ======= Sprites =======
+  function drawAleanBike(x,y,scale=1){ const s=scale; fillRect(x+3*s,y+6*s,14*s,6*s,'#0d1720'); fillRect(x+5*s,y+7*s,10*s,3*s,'#19303d'); fillRect(x+4*s,y+9*s,4*s,1*s,COL.neonG); fillRect(x+11*s,y+8*s,3*s,1*s,COL.neonG); fillRect(x+2*s,y+4*s,3*s,3*s,'#5b3d28'); fillRect(x+1*s,y+3*s,5*s,2*s,'#120d14'); fillRect(x+3*s,y+5*s,2*s,1*s,COL.neonG); if(t%6<3) fillRect(x-3*s,y+9*s,3*s,2*s,COL.neonP); else fillRect(x-2*s,y+8*s,2*s,2*s,COL.neonP); }
+  function drawUFO(x,y){ // black saucer with police lights
+    ctx.fillStyle='#000'; ctx.fillRect(x,y,16,4); ctx.fillRect(x-2,y+4,20,3); // hull
+    ctx.fillStyle='#ff3a3a'; ctx.fillRect(x+4,y+1,2,2); ctx.fillStyle='#3ad3ff'; ctx.fillRect(x+10,y+1,2,2);
+  }
+
+  function fillRect(x,y,w,h,color){ ctx.fillStyle=color; ctx.fillRect(x|0,y|0,w|0,h|0); }
+  function rand(a,b){ return Math.random()*(b-a)+a; }
+
+  // ======= Pixel font =======
+  const FONT={A:[0,1,0,1,0,1,1,1,1,1,0,1,1,0,1],E:[1,1,1,1,0,0,1,1,0,1,0,0,1,1,1],N:[1,0,1,1,1,1,1,1,1,1,0,1,1,0,1],O:[0,1,0,1,0,1,1,0,1,1,0,1,1,0,1],F:[1,1,1,1,0,0,1,1,0,1,0,0,1,0,0],L:[1,0,0,1,0,0,1,0,0,1,0,0,1,1,1],I:[1,1,1,0,1,0,0,1,0,0,1,0,1,1,1],G:[0,1,1,1,0,0,1,0,1,1,0,1,0,1,1],H:[1,0,1,1,0,1,1,1,1,1,0,1,1,0,1],T:[1,1,1,0,1,0,0,1,0,0,1,0,0,1,0],S:[0,1,1,1,0,0,0,1,0,0,0,1,1,1,0],C:[0,1,1,1,0,0,1,0,0,1,0,0,0,1,1],R:[1,1,0,1,0,1,1,1,0,1,0,1,1,0,1],Y:[1,0,1,1,0,1,0,1,0,0,1,0,0,1,0],P:[1,1,1,1,0,1,1,1,1,1,0,0,1,0,0],U:[1,0,1,1,0,1,1,0,1,1,0,1,0,1,0],B:[1,1,0,1,0,1,1,1,0,1,0,1,1,1,0],D:[1,1,0,1,0,1,1,0,1,1,0,1,1,1,0],' ':[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]};
+  function drawGlyph(x,y,ch,scale=2){ const g=FONT[ch]; if(!g) return; ctx.fillStyle=COL.text; let i=0; for(let r=0;r<5;r++) for(let c=0;c<3;c++,i++) if(g[i]) ctx.fillRect(x+c*scale,y+r*scale,scale,scale); }
+  function drawText(x,y,str,scale=2){ for(let i=0;i<str.length;i++) drawGlyph(x+i*(4*scale-2),y,str[i].toUpperCase(),scale); }
+  function centerText(str,y,scale=2){ const w=str.length*(4*scale-2); const x=(W-w)/2; drawText(x,y,str,scale); }
+
+  function draw(){
+    clearSky(); drawCity3D();
+    // particles
+    for(const p of fx){ ctx.fillStyle = p.color==='purple'? COL.neonP : (p.color==='hit'? '#ff5050' : COL.neonG); ctx.fillRect(p.x|0,p.y|0,2,2); }
+    // bombs
+    for(const g of greenBombs){ ctx.fillStyle=COL.neonG; ctx.fillRect((g.x-1)|0,(g.y-1)|0,3,3); ctx.fillStyle='#2b5'; ctx.fillRect((g.x-2)|0,(g.y-2)|0,1,1); ctx.fillRect((g.x+2)|0,(g.y-1)|0,1,1); }
+    // lasers
+    for(const b of purpleLasers){ ctx.fillStyle=COL.neonP; ctx.fillRect(b.x|0,b.y|0,4,2); ctx.fillRect((b.x-2)|0,(b.y-1)|0,2,1); ctx.fillRect((b.x-2)|0,(b.y+2)|0,2,1); }
+    // enemies
+    for(const e of enemies) drawUFO(e.x|0,e.y|0);
+    // player
+    drawAleanBike(player.x,player.y,1);
+    // HUD
+    drawHUD();
+  }
+
+  function drawHUD(){
+    drawText(4,4,`SCORE ${score}`); drawText(4,12,`KILLS ${kills}`); drawText(4,20,`BEST  ${best}`);
+    // hearts
+    for(let i=0;i<hearts;i++){ ctx.fillStyle='#f00'; ctx.fillRect(130+i*8,6,6,2); ctx.fillRect(128+i*8,8,10,2); ctx.fillRect(130+i*8,10,6,2); }
+  }
+
+  function drawMenuOrOverlays(){
+    clearSky(); drawCity3D();
+    if(state===0){
+      const bob=Math.sin(t*0.08)*2; drawAleanBike(W/2-24,H/2-10+bob,2);
+      centerText('A L E A N',16,3); centerText('NEON FLIGHT',30,2); centerText('PRESS START',52,2);
+      centerText('SPACE=FLAP  L=PURPLE LASER',72,1); centerText('K=PLANT BOMB (ARC)',80,1); centerText('P=PAUSE  R=RESTART',88,1);
+      if((t>>4)&1) centerText('ENTER OR SPACE',104,1);
+    } else if(state===3){
+      centerText('G A M E  O V E R', 46, 2);
+      centerText(`SCORE ${score}   BEST ${Math.max(best,score)}`, 62, 1);
+      centerText('PRESS R / ENTER / SPACE', 78, 1);
+    }
+  }
+
+  // Kickoff
+  update();
+})();
+</script>
+</body>
+</html>
