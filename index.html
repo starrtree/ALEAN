@@ -25,6 +25,7 @@
             <p class="eyebrow">MAX STARR PRESENTS</p>
             <h1>ALEAN</h1>
             <h2>NEON FLIGHT</h2>
+            <p class="song-credit">FEATURING “ALEAN!” — MAX STARR</p>
             <p class="tagline">OUTRUN THE UFO POLICE. SURVIVE THE TRACK.</p>
           </div>
           <div class="main-menu">
@@ -51,11 +52,13 @@
           <header><button data-back>← BACK</button><div><p class="eyebrow">FIELD MANUAL</p><h3>HOW TO PLAY</h3></div></header>
           <div class="two-col">
             <div class="info-card"><b>MOVE</b><p>SPACE / W / ↑ — flap upward. Ground contact does not trap you; you can launch again immediately.</p></div>
-            <div class="info-card"><b>PURPLE LASER</b><p>L / J — fast precision shot. Hypercharge power-ups make it pierce multiple UFOs.</p></div>
-            <div class="info-card"><b>NEUROVINE BOMB</b><p>K — gravity-driven plant bomb. It does nothing if it misses, but a UFO impact detonates a large chain-kill radius.</p></div>
+            <div class="info-card"><b>PURPLE LASER</b><p>F by default — fast precision shot. A direct kill flashes the police UFO purple before it breaks apart. Remap it in Settings.</p></div>
+            <div class="info-card"><b>NEUROVINE BOMB</b><p>E by default — gravity-driven biological bomb. A hit grows green vines through the target, detonates, and chain-destroys nearby UFOs. Remap it in Settings.</p></div>
             <div class="info-card"><b>STARRDRIVE</b><p>SHIFT / X — spend 50 boost energy for speed, invulnerability and x2 scoring. Near-misses and kills recharge it.</p></div>
             <div class="info-card"><b>HEARTS</b><p>You begin with 3. Every 3 police UFOs destroyed awards an extra heart, up to the life cap.</p></div>
             <div class="info-card"><b>POWER-UPS</b><p>Phase Shield, Police Jammer, Gravity Snare, Laser Hypercharge, Repair Heart, StarrSeed and Boost Cell.</p></div>
+            <div class="info-card"><b>5-STAR PURSUIT</b><p>The chase starts light. Each GTA-style star raises police density, fire rate, enemy classes, and pressure.</p></div>
+            <div class="info-card"><b>MOTHERSHIP BOSS</b><p>Deep into the run the camera pulls back, gravity shuts off, and the game becomes a free-flight arena. Use WASD / arrows to fly in any direction while police drones attack from every side.</p></div>
           </div>
         </section>
 
@@ -65,8 +68,7 @@
           <div class="stream-grid">
             <a href="#" data-stream="hyperfollow" class="primary-link">ALL PLATFORMS / SAVE</a>
             <a href="#" data-stream="spotify">SPOTIFY</a>
-            <a href="#" data-stream="apple">APPLE MUSIC</a>
-            <a href="#" data-stream="itunes">ITUNES / APPLE</a>
+            <a href="#" data-stream="apple">APPLE MUSIC / ITUNES</a>
             <a href="#" data-stream="youtube">YOUTUBE MUSIC</a>
             <a href="#" data-stream="amazon">AMAZON MUSIC</a>
           </div>
@@ -93,6 +95,12 @@
             <label class="toggle">MUTE ALL <input id="muteToggle" type="checkbox" /></label>
             <label class="toggle">SCREEN SHAKE <input id="shakeToggle" type="checkbox" /></label>
             <label class="toggle">REDUCED PARTICLES <input id="fxToggle" type="checkbox" /></label>
+            <label class="toggle">LIVE LYRICS <input id="lyricsToggle" type="checkbox" /></label>
+            <label>LASER KEY <button id="laserKeyBtn" type="button" class="keybind-btn">F</button></label>
+            <label>BOMB KEY <button id="bombKeyBtn" type="button" class="keybind-btn">E</button></label>
+            <label>BOOST KEY <button id="boostKeyBtn" type="button" class="keybind-btn">SHIFT</button></label>
+            <label>HOVER-BIKE PALETTE <select id="paletteSelect" aria-label="Hover bike palette"></select></label>
+            <p id="keybindHint" class="tiny">Click a key button, then press the new key. WASD / arrow keys are reserved for boss-flight movement.</p>
           </div>
         </section>
 
@@ -123,6 +131,7 @@
             <div><span>UFOs</span><strong id="resultsKills">0</strong></div>
             <div><span>CHAIN</span><strong id="resultsChain">x0</strong></div>
             <div><span>TIME</span><strong id="resultsTime">0:00</strong></div>
+            <div><span>HIGH SCORE</span><strong id="resultsBest">0</strong></div>
           </div>
           <button id="replayBtn" class="primary">↻ REPLAY</button>
           <button id="resultsStreamBtn" class="music-cta">♫ STREAM / SAVE ALEAN!</button>
@@ -132,6 +141,12 @@
 
       <div id="mobileControls" class="mobile-controls hidden" aria-label="Mobile controls">
         <button id="flapBtn" class="flap">↑</button>
+        <div id="bossPad" class="boss-pad hidden" aria-label="Boss flight directional controls">
+          <button id="bossUpBtn" aria-label="Fly up">↑</button>
+          <button id="bossLeftBtn" aria-label="Fly left">←</button>
+          <button id="bossDownBtn" aria-label="Fly down">↓</button>
+          <button id="bossRightBtn" aria-label="Fly right">→</button>
+        </div>
         <div class="right-controls">
           <button id="laserBtn" class="laser">LASER</button>
           <button id="bombBtn" class="bomb">BOMB</button>
