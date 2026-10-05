@@ -7,6 +7,8 @@
   class AleanGame {
     constructor(canvas, audio) {
       this.canvas = canvas;
+      this.canvas.width = C.W;
+      this.canvas.height = C.H;
       this.ctx = canvas.getContext('2d');
       this.ctx.imageSmoothingEnabled = false;
       this.audio = audio;
@@ -35,6 +37,7 @@
       this.records = this.loadRecords();
       this.keys = {};
       this.bossDirs = { up:false, down:false, left:false, right:false };
+      this.bossTouch = { active:false, x:0, y:0 };
       this.actions = { flap:false, laser:false, bomb:false, boost:false };
       this.bg = this.makeCity();
       this.stars = Array.from({ length: 70 }, (_, i) => ({
@@ -112,6 +115,13 @@
 
     setBossDirection(direction, active) {
       if (Object.prototype.hasOwnProperty.call(this.bossDirs, direction)) this.bossDirs[direction] = !!active;
+    }
+
+    setBossTouchTarget(x, y, active=true) {
+      this.bossTouch.active = !!active;
+      if (!active) return;
+      this.bossTouch.x = M.clamp(x, 0, C.W) / this.bossScale;
+      this.bossTouch.y = M.clamp(y, 0, C.H) / this.bossScale;
     }
 
     externalAction(name) {
@@ -389,6 +399,14 @@
         const left = this.keys.a || this.keys.arrowleft || this.bossDirs.left;
         const right = this.keys.d || this.keys.arrowright || this.bossDirs.right;
         let dx=(right?1:0)-(left?1:0), dy=(down?1:0)-(up?1:0);
+
+        if (C.mobilePortrait && this.bossTouch.active) {
+          const tx=this.bossTouch.x-(p.x+p.w/2);
+          const ty=this.bossTouch.y-(p.y+p.h/2);
+          if (Math.hypot(tx,ty)>7) { dx=tx; dy=ty; }
+          else { dx=0; dy=0; }
+        }
+
         const len=Math.hypot(dx,dy)||1;
         const speed=p.boost>0?245:178;
         if(dx||dy){dx/=len;dy/=len;p.x+=dx*speed*dt;p.y+=dy*speed*dt;this.emitTrail(this.settings.reducedFx?1:2);}
@@ -964,21 +982,21 @@
       }
 
       // Centered base-form rider, smaller than v2.2.
-      const scale=4.15;
+      const scale=C.mobilePortrait?3.55:4.15;
       const visualX=C.W/2+11*scale;
-      const visualY=C.H/2+3*scale+18+Math.sin(now/420)*2.2;
+      const visualY=(C.mobilePortrait?C.H*.53:C.H/2+18)+3*scale+Math.sin(now/420)*2.2;
       this.drawPlayerSprite(visualX,visualY,scale,true);
 
       ctx.save();
       ctx.textAlign='center';
-      ctx.font='30px "Press Start 2P", monospace';
+      ctx.font=(C.mobilePortrait?'22px':'30px')+' "Press Start 2P", monospace';
       ctx.fillStyle='#ad82e6';
       ctx.shadowColor='#4e2c70';ctx.shadowOffsetX=3;ctx.shadowOffsetY=3;
-      ctx.fillText('ALEAN!',C.W/2,36);
-      ctx.font='10px "Press Start 2P", monospace';
+      ctx.fillText('ALEAN!',C.W/2,C.mobilePortrait?52:36);
+      ctx.font=(C.mobilePortrait?'8px':'10px')+' "Press Start 2P", monospace';
       ctx.fillStyle='#78d18b';
       ctx.shadowColor='#22472b';ctx.shadowOffsetX=2;ctx.shadowOffsetY=2;
-      ctx.fillText('by Max Starr',C.W/2,54);
+      ctx.fillText('by Max Starr',C.W/2,C.mobilePortrait?69:54);
       ctx.shadowColor='transparent';
       if(Math.floor(now/520)%2===0){
         ctx.font='7px "Press Start 2P", monospace';
@@ -1215,18 +1233,67 @@
 
     drawHud() {
       const ctx=this.ctx,p=this.player;
-      ctx.save();ctx.font='7px "Press Start 2P", monospace';ctx.textBaseline='top';
+      ctx.save();
+      ctx.font='7px "Press Start 2P", monospace';
+      ctx.textBaseline='top';
+
+      if (C.mobilePortrait) {
+        ctx.fillStyle='rgba(7,8,12,.74)';
+        ctx.fillRect(5,5,C.W-10,38);
+
+        ctx.textAlign='left';
+        ctx.fillStyle='#d9dde3';
+        ctx.fillText(`SCORE ${Math.floor(this.score).toString().padStart(6,'0')}`,10,10);
+        ctx.fillText(`UFO ${this.kills}`,10,23);
+
+        ctx.textAlign='right';
+        ctx.fillStyle='#aeb6c0';
+        ctx.fillText('WANTED',C.W-8,8);
+        ctx.font='11px sans-serif';
+        ctx.fillStyle='#4f5660';
+        ctx.fillText('★★★★★',C.W-8,19);
+        ctx.fillStyle='#e3c363';
+        ctx.fillText('★'.repeat(this.wanted),C.W-8,19);
+
+        // Hearts sit on their own line below the score block so they stay readable in 9:16.
+        for(let i=0;i<this.hearts;i++) this.drawHeart(8+i*13,48);
+
+        ctx.font='6px "Press Start 2P", monospace';
+        ctx.textAlign='left';
+        ctx.fillStyle='rgba(7,8,12,.72)';
+        ctx.fillRect(6,C.H-24,122,14);
+        ctx.fillStyle='#303942';
+        ctx.fillRect(10,C.H-19,108,4);
+        ctx.fillStyle='#d7bd72';
+        ctx.fillRect(10,C.H-19,108*(p.boostEnergy/100),4);
+        ctx.fillStyle='#d9dde3';
+        ctx.fillText('STARRDRIVE',10,C.H-12);
+
+        if(this.mode==='song'){
+          ctx.fillStyle='rgba(7,8,12,.72)';
+          ctx.fillRect(C.W-82,C.H-24,76,14);
+          ctx.fillStyle='#34303f';
+          ctx.fillRect(C.W-77,C.H-19,66,4);
+          ctx.fillStyle=this.palette.accent;
+          ctx.fillRect(C.W-77,C.H-19,66*this.audio.progress,4);
+          ctx.fillStyle='#d9dde3';
+          ctx.fillText('TRACK',C.W-77,C.H-12);
+        }
+
+        if(p.shield){ctx.fillStyle='#8fd2d2';ctx.fillText('SHIELD',8,64);}
+        if(this.jammer>0){ctx.fillStyle='#cf8b8b';ctx.fillText('JAMMER',8,75);}
+        if(this.hyper>0){ctx.fillStyle=this.palette.laser;ctx.fillText('HYPER',8,86);}
+        ctx.restore();
+        return;
+      }
+
       ctx.fillStyle='rgba(7,8,12,.72)';ctx.fillRect(6,6,138,30);ctx.fillStyle='#d9dde3';ctx.fillText(`SCORE ${Math.floor(this.score).toString().padStart(6,'0')}`,12,11);ctx.fillText(`KILLS ${this.kills}`,12,22);
-      // hearts
       for(let i=0;i<this.hearts;i++)this.drawHeart(160+i*15,10);
-      // GTA-style five-star wanted meter
       ctx.textAlign='right';ctx.fillStyle='#aeb6c0';ctx.fillText('WANTED',C.W-10,8);
       ctx.font='13px sans-serif';ctx.fillStyle='#4f5660';ctx.fillText('★★★★★',C.W-10,19);
       ctx.fillStyle='#e3c363';ctx.fillText('★'.repeat(this.wanted),C.W-10,19);
       ctx.font='7px "Press Start 2P", monospace';
-      // boost meter
       ctx.textAlign='left';ctx.fillStyle='rgba(7,8,12,.72)';ctx.fillRect(8,C.H-18,132,10);ctx.fillStyle='#303942';ctx.fillRect(12,C.H-15,118,4);ctx.fillStyle='#d7bd72';ctx.fillRect(12,C.H-15,118*(p.boostEnergy/100),4);ctx.fillStyle='#d9dde3';ctx.fillText('STARRDRIVE',145,C.H-18);
-      // track progress
       if(this.mode==='song'){
         ctx.fillStyle='rgba(7,8,12,.72)';ctx.fillRect(C.W-124,C.H-18,116,10);ctx.fillStyle='#34303f';ctx.fillRect(C.W-119,C.H-15,104,4);ctx.fillStyle=this.palette.accent;ctx.fillRect(C.W-119,C.H-15,104*this.audio.progress,4);
       }
