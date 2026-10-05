@@ -34,7 +34,10 @@
     const times=C.lyrics.filter(l=>Number.isFinite(l.t)).map(l=>l.t);
     ok(times.every((t,i)=>i===0||t>=times[i-1]));
   });
-  test('ambiguous supplied lyric is explicitly flagged instead of silently retimed',()=>ok(C.lyrics.some(l=>l.t===null&&l.ambiguous)));
+  test('final corrected lyrics use 2:10 and 2:12.5 timestamps',()=>{
+    ok(C.lyrics.some(l=>l.t===130&&l.text.includes('The way I can make them lean')));
+    ok(C.lyrics.some(l=>l.t===132.5&&l.text.includes('M.I.B. Man I Been alien!')));
+  });
 
   document.getElementById('summary').textContent=`${pass} passed / ${fail} failed`;
   document.body.dataset.ok=fail===0?'true':'false';
