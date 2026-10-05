@@ -38,6 +38,16 @@
     ok(C.lyrics.some(l=>l.t===130&&l.text.includes('The way I can make them lean')));
     ok(C.lyrics.some(l=>l.t===132.5&&l.text.includes('M.I.B. Man I Been alien!')));
   });
+  test('difficulty presets include easy medium hard',()=>ok(C.difficulties.easy&&C.difficulties.medium&&C.difficulties.hard));
+  test('easy preserves the current forgiving spawn curve',()=>eq(C.difficulties.easy.spawn[1],1.55));
+  test('medium restores the pre-easing spawn curve',()=>eq(C.difficulties.medium.spawn[1],1.15));
+  test('medium restores original wanted timing',()=>eq(M.wantedLevel(28,0,'medium'),2));
+  test('medium restores fixed normal police bullet base',()=>ok(C.difficulties.medium.bulletBase===145&&C.difficulties.medium.bulletWantedStep===0));
+  test('hard world moves faster than medium',()=>ok(C.difficulties.hard.worldSpeed>C.difficulties.medium.worldSpeed));
+  test('hard spawns police faster than medium',()=>ok(M.spawnInterval(1,'hard')<M.spawnInterval(1,'medium')));
+  test('hover taps are shorter than the original -250 impulse',()=>ok(Math.abs(C.difficulties.easy.flapVelocity)<250&&Math.abs(C.difficulties.medium.flapVelocity)<250));
+  test('easy mothership has less HP than medium',()=>ok(C.difficulties.easy.bossHp<C.difficulties.medium.bossHp));
+  test('easy mothership drones are slower than medium',()=>ok(C.difficulties.easy.bossDroneSpeed<C.difficulties.medium.bossDroneSpeed));
 
   document.getElementById('summary').textContent=`${pass} passed / ${fail} failed`;
   document.body.dataset.ok=fail===0?'true':'false';
