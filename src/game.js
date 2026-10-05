@@ -180,6 +180,7 @@
       this.bossMode = false;
       this.bossScale = 0.78;
       this.bossTransition = 0;
+      this.bossTouch.active = false;
       this.jammer = 0;
       this.gravitySnare = 0;
       this.hyper = 0;
@@ -952,7 +953,7 @@
       // Thin white slipstream lines: clean motion on a pure black title card.
       ctx.save();
       for(let i=0;i<28;i++){
-        const laneY=10+((i*31)%196);
+        const laneY=10+((i*31)%Math.max(40,C.H-20));
         const cycle=C.W+120;
         const x=cycle-((now*(0.07+(i%5)*0.012)+i*47)%cycle)-65;
         const len=14+(i%6)*7;
@@ -1090,7 +1091,7 @@
       const ctx=this.ctx,{lyric,progress}=data;
       const maxW=C.W-34;
       ctx.save();
-      ctx.font='6px "Press Start 2P", monospace';
+      ctx.font=(C.mobilePortrait?'5px':'6px')+' "Press Start 2P", monospace';
       ctx.textBaseline='middle';
       const words=lyric.text.split(/\s+/);
       const lines=[];let line=[];
@@ -1100,8 +1101,8 @@
         else line.push(w);
       }
       if(line.length)lines.push(line);
-      const shown=lines.slice(0,2);
-      const y0=C.H-42-(shown.length-1)*7;
+      const shown=lines.slice(0,C.mobilePortrait?3:2);
+      const y0=(C.mobilePortrait?C.H-102:C.H-42)-(shown.length-1)*7;
       ctx.fillStyle='rgba(5,6,9,.68)';ctx.fillRect(12,y0-8,C.W-24,shown.length*14+3);
       const totalWords=words.length,lit=Math.floor(progress*totalWords);
       let seen=0;
@@ -1260,24 +1261,25 @@
 
         ctx.font='6px "Press Start 2P", monospace';
         ctx.textAlign='left';
+        const meterY=C.H-76;
         ctx.fillStyle='rgba(7,8,12,.72)';
-        ctx.fillRect(6,C.H-24,122,14);
+        ctx.fillRect(6,meterY,122,14);
         ctx.fillStyle='#303942';
-        ctx.fillRect(10,C.H-19,108,4);
+        ctx.fillRect(10,meterY+5,108,4);
         ctx.fillStyle='#d7bd72';
-        ctx.fillRect(10,C.H-19,108*(p.boostEnergy/100),4);
+        ctx.fillRect(10,meterY+5,108*(p.boostEnergy/100),4);
         ctx.fillStyle='#d9dde3';
-        ctx.fillText('STARRDRIVE',10,C.H-12);
+        ctx.fillText('STARRDRIVE',10,meterY+12);
 
         if(this.mode==='song'){
           ctx.fillStyle='rgba(7,8,12,.72)';
-          ctx.fillRect(C.W-82,C.H-24,76,14);
+          ctx.fillRect(C.W-82,meterY,76,14);
           ctx.fillStyle='#34303f';
-          ctx.fillRect(C.W-77,C.H-19,66,4);
+          ctx.fillRect(C.W-77,meterY+5,66,4);
           ctx.fillStyle=this.palette.accent;
-          ctx.fillRect(C.W-77,C.H-19,66*this.audio.progress,4);
+          ctx.fillRect(C.W-77,meterY+5,66*this.audio.progress,4);
           ctx.fillStyle='#d9dde3';
-          ctx.fillText('TRACK',C.W-77,C.H-12);
+          ctx.fillText('TRACK',C.W-77,meterY+12);
         }
 
         if(p.shield){ctx.fillStyle='#8fd2d2';ctx.fillText('SHIELD',8,64);}
