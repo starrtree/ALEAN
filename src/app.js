@@ -21,15 +21,22 @@
 
   async function unlockAndMenu() {
     if (!audio.unlocked) await audio.unlock();
-    audio.playMenu();
+    if (game.state === 'menu') audio.playMenu();
     soundGate.classList.add('hidden');
   }
 
-  document.addEventListener('pointerdown', unlockAndMenu, { once:true });
-  document.addEventListener('keydown', unlockAndMenu, { once:true });
+  async function enterFromIntro(e) {
+    if (game.state !== 'intro') return;
+    if (e && e.type === 'keydown' && ['Shift','Control','Alt','Meta'].includes(e.key)) return;
+    if (!audio.unlocked) await audio.unlock();
+    game.enterMenuFromIntro();
+    audio.playMenu();
+    soundGate.classList.add('hidden');
+    show('homeScreen');
+  }
 
-  // Autoplay attempt. Browsers may reject; the sound gate remains visible until interaction.
-  audio.unlock().then(() => audio.playMenu()).catch(() => {});
+  document.addEventListener('pointerdown', enterFromIntro, { once:true });
+  document.addEventListener('keydown', enterFromIntro, { once:true });
 
   document.querySelectorAll('[data-screen]').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -53,6 +60,21 @@
     });
   });
 
+  const difficultyDescription = document.getElementById('difficultyDescription');
+  const difficultyButtons = [...document.querySelectorAll('[data-difficulty]')];
+
+  function renderDifficulty() {
+    difficultyButtons.forEach(btn => btn.classList.toggle('selected', btn.dataset.difficulty === game.difficulty));
+    const d=C.difficulties[game.difficulty] || C.difficulties.easy;
+    difficultyDescription.textContent = d.description;
+    if (difficultySelect) difficultySelect.value = game.difficulty;
+  }
+
+  difficultyButtons.forEach(btn => btn.addEventListener('click', () => {
+    game.setDifficulty(btn.dataset.difficulty);
+    renderDifficulty();
+  }));
+
   document.getElementById('pauseButton').addEventListener('click', () => game.externalAction('pause'));
   document.getElementById('resumeBtn').addEventListener('click', () => game.resume());
   document.getElementById('quitBtn').addEventListener('click', () => game.quitToMenu());
@@ -61,6 +83,11 @@
   });
   document.getElementById('resultsMenuBtn').addEventListener('click', () => game.quitToMenu());
   document.getElementById('resultsStreamBtn').addEventListener('click', () => openStreamHub());
+  document.getElementById('startBossBtn').addEventListener('click', () => {
+    show(null);
+    mobile.classList.remove('hidden');
+    game.startBossMode();
+  });
 
   // Mobile / touch controls.
   const actionMap = {
@@ -146,6 +173,7 @@
   const shakeToggle = document.getElementById('shakeToggle');
   const fxToggle = document.getElementById('fxToggle');
   const lyricsToggle = document.getElementById('lyricsToggle');
+  const difficultySelect = document.getElementById('difficultySelect');
   const paletteSelect = document.getElementById('paletteSelect');
   const keybindHint = document.getElementById('keybindHint');
   const keyButtons = {
@@ -154,6 +182,12 @@
     boost: document.getElementById('boostKeyBtn')
   };
   let waitingForKey = null;
+
+  Object.entries(C.difficulties).forEach(([key,d]) => {
+    const option=document.createElement('option');
+    option.value=key; option.textContent=d.label;
+    difficultySelect.appendChild(option);
+  });
 
   C.palettes.forEach(p => {
     const option=document.createElement('option');
@@ -175,6 +209,7 @@
     shakeToggle.checked = game.settings.shake;
     fxToggle.checked = game.settings.reducedFx;
     lyricsToggle.checked = game.settings.lyrics;
+    difficultySelect.value = game.difficulty;
     paletteSelect.value = game.paletteKey;
     Object.entries(keyButtons).forEach(([action,btn]) => {
       btn.textContent = prettyKey(game.keybinds[action]);
@@ -197,6 +232,10 @@
   lyricsToggle.addEventListener('change', () => {
     game.settings.lyrics = lyricsToggle.checked;
     localStorage.setItem('alean_lyrics', game.settings.lyrics ? '1' : '0');
+  });
+  difficultySelect.addEventListener('change', () => {
+    game.setDifficulty(difficultySelect.value);
+    renderDifficulty();
   });
   paletteSelect.addEventListener('change', () => {
     game.setPalette(paletteSelect.value);
@@ -236,7 +275,20 @@
     bossPad.classList.add('hidden');
     flapBtn.style.display = '';
   });
+  window.addEventListener('alean:bossbrief', e => {
+    mobile.classList.add('hidden');
+    bossPad.classList.add('hidden');
+    const d=e.detail || {};
+    const cfg=C.difficulties[d.difficulty] || C.difficulties.easy;
+    document.getElementById('bossBriefDifficulty').textContent = `${cfg.label} MOTHERSHIP`;
+    document.getElementById('bossLaserKey').textContent = prettyKey(game.keybinds.laser);
+    document.getElementById('bossBombKey').textContent = prettyKey(game.keybinds.bomb);
+    document.getElementById('bossBoostKey').textContent = prettyKey(game.keybinds.boost);
+    show('bossBriefScreen');
+  });
   window.addEventListener('alean:bossstart', () => {
+    show(null);
+    mobile.classList.remove('hidden');
     bossPad.classList.remove('hidden');
     flapBtn.style.display = 'none';
   });
@@ -246,9 +298,17 @@
   });
   window.addEventListener('alean:paused', () => show('pauseScreen'));
   window.addEventListener('alean:resumed', () => show(null));
+  window.addEventListener('alean:introcomplete', () => {
+    show('homeScreen');
+    renderDifficulty();
+  });
+  window.addEventListener('alean:difficulty', () => renderDifficulty());
   window.addEventListener('alean:menu', () => {
     mobile.classList.add('hidden');
+    bossPad.classList.add('hidden');
+    flapBtn.style.display = '';
     show('homeScreen');
+    renderDifficulty();
     audio.playMenu();
   });
   window.addEventListener('alean:finished', e => {
@@ -277,5 +337,6 @@
   renderGarage();
   renderRecords();
   syncSettings();
-  show('homeScreen');
+  renderDifficulty();
+  show(null);
 })();
