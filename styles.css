@@ -40,3 +40,7 @@ button,a,input{font:inherit}.shell{width:min(1120px,96vw)}.game-frame{position:r
 .boss-control-grid>div{border:1px solid #48515d;background:#151a22;padding:10px;display:flex;flex-direction:column;gap:7px}
 .boss-control-grid b{font-size:8px;color:#a7c4b2}.boss-control-grid span{font-size:10px;color:#e7e9ed}
 @media(max-width:760px){.difficulty-picker{grid-template-columns:1fr 1fr}.difficulty-picker span{grid-column:1/-1}.boss-control-grid{grid-template-columns:1fr 1fr}}
+
+.cc-fab{position:absolute;right:9px;top:45px;z-index:8;min-width:44px;height:26px;padding:0 7px;border:1px solid #d8c45f;background:#11151ccc;color:#f0dc72;font-size:7px;cursor:pointer}
+.cc-fab.off{border-color:#666d75;color:#8d949c;text-decoration:line-through}
+.cc-fab.hidden{display:none}

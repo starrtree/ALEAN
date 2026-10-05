@@ -27,11 +27,14 @@
     maxFall: 310,
     maxHearts: 8,
     startingHearts: 3,
+    buildingDamage: 2,
     audio: {
       song: ASSET + 'ALEAN.m4a',
       menu: ASSET + 'ALEAN_Menu.m4a',
       engineIntro: ASSET + 'HOVER-ENGINE_intro.m4a',
       engineLoop: ASSET + 'HOVER-ENGINE_loop.m4a',
+      boss: ASSET + 'bitty-boss-fight-soudntrack.mp3',
+      bossLoopEnd: 38,
       laser: ASSET + 'laser.mp3',
       bomb: ASSET + 'gameboy_pluck.mp3'
     },
@@ -52,7 +55,7 @@
       easy: {
         label:'EASY',
         description:'Fast chase, forgiving openings, easier boss.',
-        gravity:780, flapVelocity:-210, maxFall:300,
+        gravity:820, flapVelocity:-190, maxFall:300,
         wantedDelay:18, wantedTimeStep:34, wantedKillStep:18,
         spawn:[0,1.55,1.24,0.98,0.76,0.58],
         fire:{scout:3.0,interceptor:2.2,riot:1.75,elite:1.35,boss:1.08},
@@ -63,7 +66,7 @@
       medium: {
         label:'MEDIUM',
         description:'Original v2 pursuit pressure before the easier rebalance.',
-        gravity:780, flapVelocity:-210, maxFall:310,
+        gravity:835, flapVelocity:-192, maxFall:315,
         wantedDelay:0, wantedTimeStep:28, wantedKillStep:16,
         spawn:[0,1.15,0.92,0.74,0.58,0.44],
         fire:{scout:2.2,interceptor:1.55,riot:1.22,elite:0.94,boss:0.72},
@@ -73,14 +76,14 @@
       },
       hard: {
         label:'HARD',
-        description:'Very fast pursuit, tight gaps, heavy fire, aggressive mothership.',
-        gravity:805, flapVelocity:-218, maxFall:335,
-        wantedDelay:0, wantedTimeStep:18, wantedKillStep:10,
-        spawn:[0,0.82,0.66,0.52,0.40,0.31],
-        fire:{scout:1.55,interceptor:1.06,riot:0.82,elite:0.62,boss:0.44},
-        bulletBase:178, bulletWantedStep:10, eliteBulletBonus:42, bossBulletBonus:30, worldSpeed:1.28,
-        gateBase:4.25, gateStep:0.26, gateMin:2.55, gateGap:78, gateGapStep:3, gateWidth:30,
-        bossHp:42, bossDroneBase:1.0, bossDroneStep:0.10, bossDroneMin:0.46, bossDroneSpeed:1.22
+        description:'EXTREME pursuit: blistering speed, dense police, brutal fire, tiny reaction windows.',
+        gravity:900, flapVelocity:-202, maxFall:390,
+        wantedDelay:0, wantedTimeStep:12, wantedKillStep:7,
+        spawn:[0,0.60,0.46,0.34,0.26,0.20],
+        fire:{scout:0.95,interceptor:0.65,riot:0.48,elite:0.34,boss:0.26},
+        bulletBase:230, bulletWantedStep:14, eliteBulletBonus:58, bossBulletBonus:44, worldSpeed:1.75,
+        gateBase:3.4, gateStep:0.30, gateMin:1.80, gateGap:68, gateGapStep:4, gateWidth:34,
+        bossHp:64, bossDroneBase:0.72, bossDroneStep:0.09, bossDroneMin:0.28, bossDroneSpeed:1.55
       }
     },
     lyrics: [
@@ -127,6 +130,20 @@
       {t:130,text:'I just feel like that purple drink, The way I can make them lean'},
       {t:132.5,text:'Make \'em forget what they seen, M.I.B. Man I Been alien!',punch:true}
     ],
+    skyLyrics: [
+      {t:8.8,text:'HIGH AS ALIEN',duration:5.2},
+      {t:24.4,text:'SEEN EVERYTHING',duration:5.0},
+      {t:37.0,text:'I\'M THE BOMB',duration:5.0},
+      {t:43.3,text:'OPEN YOUR EYES',duration:5.2},
+      {t:67.3,text:'CAN\'T BE IDENTIFIED',duration:5.4},
+      {t:70.8,text:'NO ID',duration:4.8},
+      {t:76.2,text:'SURVIVE THE RIDE',duration:5.2},
+      {t:89.4,text:'SEEN EVERYTHING',duration:5.0},
+      {t:107.0,text:'THING LIKE ME',duration:5.3},
+      {t:119.0,text:'TURNED UP STING',duration:5.2},
+      {t:127.0,text:'WANNA MEET ET',duration:5.1},
+      {t:133.0,text:'BEEN ALIEN',duration:5.0}
+    ],
     palettes
   };
 
@@ -135,8 +152,8 @@
     overlap(a, b) {
       return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
     },
-    heartAwardsBetween(oldKills, newKills) {
-      return Math.max(0, Math.floor(newKills / 3) - Math.floor(oldKills / 3));
+    neurovineHeartReward(currentHearts, maxHearts=config.maxHearts) {
+      return currentHearts < maxHearts ? 1 : 0;
     },
     difficultyConfig(key) {
       return config.difficulties[key] || config.difficulties.easy;

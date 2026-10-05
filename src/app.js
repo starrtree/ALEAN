@@ -13,6 +13,7 @@
   const mobile = document.getElementById('mobileControls');
   const bossPad = document.getElementById('bossPad');
   const flapBtn = document.getElementById('flapBtn');
+  const ccButton = document.getElementById('ccButton');
 
   function show(id) {
     screens.forEach(s => s.classList.toggle('active', s.id === id));
@@ -83,6 +84,11 @@
   });
   document.getElementById('resultsMenuBtn').addEventListener('click', () => game.quitToMenu());
   document.getElementById('resultsStreamBtn').addEventListener('click', () => openStreamHub());
+  ccButton.addEventListener('click', () => {
+    game.settings.lyrics = !game.settings.lyrics;
+    localStorage.setItem('alean_lyrics', game.settings.lyrics ? '1' : '0');
+    syncLyricsControls();
+  });
   document.getElementById('startBossBtn').addEventListener('click', () => {
     show(null);
     mobile.classList.remove('hidden');
@@ -201,6 +207,13 @@
     return String(k).toUpperCase();
   }
 
+  function syncLyricsControls() {
+    lyricsToggle.checked = game.settings.lyrics;
+    ccButton.setAttribute('aria-pressed', game.settings.lyrics ? 'true' : 'false');
+    ccButton.textContent = game.settings.lyrics ? 'CC' : 'CC OFF';
+    ccButton.classList.toggle('off', !game.settings.lyrics);
+  }
+
   function syncSettings() {
     musicSlider.value = audio.musicVolume;
     engineSlider.value = audio.engineVolume;
@@ -208,7 +221,7 @@
     muteToggle.checked = audio.muted;
     shakeToggle.checked = game.settings.shake;
     fxToggle.checked = game.settings.reducedFx;
-    lyricsToggle.checked = game.settings.lyrics;
+    syncLyricsControls();
     difficultySelect.value = game.difficulty;
     paletteSelect.value = game.paletteKey;
     Object.entries(keyButtons).forEach(([action,btn]) => {
@@ -232,6 +245,7 @@
   lyricsToggle.addEventListener('change', () => {
     game.settings.lyrics = lyricsToggle.checked;
     localStorage.setItem('alean_lyrics', game.settings.lyrics ? '1' : '0');
+    syncLyricsControls();
   });
   difficultySelect.addEventListener('change', () => {
     game.setDifficulty(difficultySelect.value);
@@ -274,10 +288,13 @@
     show(null); mobile.classList.remove('hidden');
     bossPad.classList.add('hidden');
     flapBtn.style.display = '';
+    ccButton.classList.remove('hidden');
+    syncLyricsControls();
   });
   window.addEventListener('alean:bossbrief', e => {
     mobile.classList.add('hidden');
     bossPad.classList.add('hidden');
+    ccButton.classList.add('hidden');
     const d=e.detail || {};
     const cfg=C.difficulties[d.difficulty] || C.difficulties.easy;
     document.getElementById('bossBriefDifficulty').textContent = `${cfg.label} MOTHERSHIP`;
@@ -291,10 +308,13 @@
     mobile.classList.remove('hidden');
     bossPad.classList.remove('hidden');
     flapBtn.style.display = 'none';
+    ccButton.classList.add('hidden');
   });
   window.addEventListener('alean:bossend', () => {
     bossPad.classList.add('hidden');
     flapBtn.style.display = '';
+    ccButton.classList.remove('hidden');
+    syncLyricsControls();
   });
   window.addEventListener('alean:paused', () => show('pauseScreen'));
   window.addEventListener('alean:resumed', () => show(null));
@@ -306,6 +326,7 @@
   window.addEventListener('alean:menu', () => {
     mobile.classList.add('hidden');
     bossPad.classList.add('hidden');
+    ccButton.classList.add('hidden');
     flapBtn.style.display = '';
     show('homeScreen');
     renderDifficulty();
@@ -313,6 +334,7 @@
   });
   window.addEventListener('alean:finished', e => {
     mobile.classList.add('hidden');
+    ccButton.classList.add('hidden');
     const d=e.detail;
     document.getElementById('resultsTitle').textContent = d.escaped ? 'ALEAN ESCAPED' : 'SYSTEM FAILURE';
     document.getElementById('resultsSubtitle').textContent = d.escaped ? 'TRACK SURVIVED — YOU OUTRAN THE PURSUIT' : 'THE PURSUIT CAUGHT YOU';
