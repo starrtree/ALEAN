@@ -10,8 +10,9 @@
       this.ctx = canvas.getContext('2d');
       this.ctx.imageSmoothingEnabled = false;
       this.audio = audio;
-      this.state = 'menu';
+      this.state = 'intro';
       this.mode = 'song';
+      this.difficulty = localStorage.getItem('alean_difficulty') || 'easy';
       this.last = performance.now();
       this.acc = 0;
       this.fixed = 1 / 60;
@@ -136,6 +137,23 @@
       localStorage.setItem('alean_palette', key);
     }
 
+    get difficultyConfig() {
+      return C.difficulties[this.difficulty] || C.difficulties.easy;
+    }
+
+    setDifficulty(key) {
+      if (!C.difficulties[key]) return;
+      this.difficulty = key;
+      localStorage.setItem('alean_difficulty', key);
+      window.dispatchEvent(new CustomEvent('alean:difficulty', { detail:{ difficulty:key } }));
+    }
+
+    enterMenuFromIntro() {
+      if (this.state !== 'intro') return;
+      this.state = 'menu';
+      window.dispatchEvent(new Event('alean:introcomplete'));
+    }
+
     resetRun() {
       this.elapsed = 0;
       this.score = 0;
@@ -219,6 +237,7 @@
       return {
         escaped,
         mode:this.mode,
+        difficulty:this.difficulty,
         score:Math.floor(this.score),
         kills:this.kills,
         chain:this.bestChain,
@@ -255,7 +274,7 @@
       if (this.state !== 'play') return;
 
       this.elapsed += dt;
-      this.wanted = M.wantedLevel(this.elapsed, this.kills);
+      this.wanted = M.wantedLevel(this.elapsed, this.kills, this.difficulty);
       this.updateTimers(dt);
       this.readContinuousInput();
       this.processActions();
@@ -264,7 +283,7 @@
       this.gateClock -= dt;
       if (this.spawnClock <= 0) this.spawnWave();
       if (!this.bossMode && this.gateClock <= 0) this.spawnGate();
-      if (!this.bossSpawned && (this.elapsed > 82 || (this.mode === 'song' && this.audio.progress > 0.68))) this.enterBossMode();
+      if (!this.bossSpawned && (this.elapsed > 82 || (this.mode === 'song' && this.audio.progress > 0.68))) this.beginBossBrief();
       this.updateWorld(dt);
       this.handleCollisions();
       this.updateParticles(dt);
@@ -300,7 +319,7 @@
     }
 
     flap() {
-      this.player.vy = C.flapVelocity * (this.player.boost > 0 ? 0.92 : 1);
+      this.player.vy = this.difficultyConfig.flapVelocity * (this.player.boost > 0 ? 0.92 : 1);
       this.emitTrail(3);
     }
 
@@ -379,7 +398,7 @@
         p.vy=0;
         return;
       }
-      p.vy = Math.min(C.maxFall, p.vy + C.gravity * dt);
+      p.vy = Math.min(this.difficultyConfig.maxFall, p.vy + this.difficultyConfig.gravity * dt);
       p.y += p.vy * dt;
       if (p.y < 5) { p.y = 5; p.vy = Math.max(0, p.vy); }
       const ground = C.H - 24 - p.h;
@@ -390,12 +409,14 @@
     spawnWave() {
       const level = this.wanted;
       if (this.bossMode) {
-        this.spawnClock = Math.max(0.72, 1.5 - level*0.1) * (0.85 + Math.random()*0.45);
-        const count = level >= 4 && Math.random() < 0.34 ? 2 : 1;
+        const d=this.difficultyConfig;
+        this.spawnClock = Math.max(d.bossDroneMin, d.bossDroneBase - level*d.bossDroneStep) * (0.9 + Math.random()*0.4);
+        const multiChance=this.difficulty==='easy'?0.12:this.difficulty==='medium'?0.34:0.58;
+        const count = level >= 4 && Math.random() < multiChance ? 2 : 1;
         for (let i=0;i<count;i++) this.enemies.push(this.makeArenaDrone());
         return;
       }
-      this.spawnClock = M.spawnInterval(level) * (0.9 + Math.random() * 0.5);
+      this.spawnClock = M.spawnInterval(level, this.difficulty) * (0.9 + Math.random() * 0.5);
       let count = 1;
       if (level >= 3 && Math.random() < 0.32) count = 2;
       if (level >= 5 && Math.random() < 0.28) count = 3;
@@ -415,20 +436,36 @@
     }
 
     makeEnemy(type, x, y) {
+      const d=this.difficultyConfig;
       const presets = {
-        scout:{w:28,h:13,vx:-105,hp:1,fire:3.0,score:100},
-        interceptor:{w:30,h:14,vx:-122,hp:1,fire:2.2,score:140},
-        riot:{w:34,h:16,vx:-88,hp:2,fire:1.75,score:220},
-        elite:{w:33,h:15,vx:-138,hp:2,fire:1.35,score:300}
+        scout:{w:28,h:13,vx:-105,hp:1,fire:d.fire.scout,score:100},
+        interceptor:{w:30,h:14,vx:-122,hp:1,fire:d.fire.interceptor,score:140},
+        riot:{w:34,h:16,vx:-88,hp:2,fire:d.fire.riot,score:220},
+        elite:{w:33,h:15,vx:-138,hp:2,fire:d.fire.elite,score:300}
       };
       const q = Object.assign({}, presets[type]);
-      return Object.assign(q, { type, x, y, age:0, fireCd:0.7+Math.random(), phase:Math.random()*6.2, dead:false });
+      return Object.assign(q, { type, x, y, age:0, fireCd:0.9+Math.random()*0.9, phase:Math.random()*6.2, dead:false });
     }
 
-    enterBossMode() {
+    beginBossBrief() {
+      if (this.bossSpawned || this.state !== 'play') return;
       this.bossSpawned = true;
+      this.state = 'bossbrief';
+      this.audio.pauseRun();
+      this.enemyShots.length = 0;
+      this.gates.length = 0;
+      window.dispatchEvent(new CustomEvent('alean:bossbrief', {
+        detail:{ difficulty:this.difficulty, keys:Object.assign({}, this.keybinds) }
+      }));
+    }
+
+    startBossMode() {
+      if (this.state !== 'bossbrief') return;
+      const d=this.difficultyConfig;
+      this.state = 'play';
       this.bossMode = true;
       this.bossTransition = 1;
+      this.audio.resumeRun();
       this.gates.length = 0;
       this.enemyShots.length = 0;
       this.enemies.length = 0;
@@ -436,10 +473,10 @@
       this.player.y /= this.bossScale;
       const aw=C.W/this.bossScale, ah=C.H/this.bossScale;
       this.enemies.push({
-        type:'boss', x:aw-125, y:ah*0.32, w:96, h:46, vx:0, hp:30, maxHp:30,
-        fire:0.72, fireCd:1.25, score:2600, age:0, phase:0, dead:false, arena:true
+        type:'boss', x:aw-125, y:ah*0.32, w:96, h:46, vx:0, hp:d.bossHp, maxHp:d.bossHp,
+        fire:d.fire.boss, fireCd:1.35, score:2600, age:0, phase:0, dead:false, arena:true
       });
-      this.spawnClock = 1.1;
+      this.spawnClock = d.bossDroneBase;
       this.floatText(aw*0.5,42,'5★ MOTHERSHIP LOCK','#ef7f7f');
       window.dispatchEvent(new Event('alean:bossstart'));
     }
@@ -472,10 +509,11 @@
     }
 
     spawnGate() {
-      this.gateClock = Math.max(3.8, 5.8 - this.wanted*0.22) + Math.random()*1.45;
-      const gap = 116 - this.wanted*4;
+      const d=this.difficultyConfig;
+      this.gateClock = Math.max(d.gateMin, d.gateBase - this.wanted*d.gateStep) + Math.random()*1.35;
+      const gap = d.gateGap - this.wanted*d.gateGapStep;
       const mid = 62 + Math.random()*(C.H-124);
-      this.gates.push({ x:C.W+24, w:23, gapTop:mid-gap/2, gapBottom:mid+gap/2, hit:false, passed:false });
+      this.gates.push({ x:C.W+24, w:d.gateWidth, gapTop:mid-gap/2, gapBottom:mid+gap/2, hit:false, passed:false });
     }
 
     updateWorld(dt) {
@@ -499,7 +537,7 @@
           const dx=(this.player.x+this.player.w/2)-(e.x+e.w/2);
           const dy=(this.player.y+this.player.h/2)-(e.y+e.h/2);
           const len=Math.max(1,Math.hypot(dx,dy));
-          const chase=(e.type==='elite'?118:92)*slow;
+          const chase=(e.type==='elite'?118:92)*slow*this.difficultyConfig.bossDroneSpeed;
           e.x += dx/len*chase*dt;
           e.y += dy/len*chase*dt;
         } else {
@@ -555,8 +593,9 @@
       const ey = e.y + e.h/2;
       const dx = px-ex, dy = py-ey;
       const len = Math.max(1, Math.hypot(dx,dy));
-      const base = 102 + this.wanted*7;
-      const speed = e.type === 'elite' ? base+18 : e.type === 'boss' ? base+10 : base;
+      const d=this.difficultyConfig;
+      const base = d.bulletBase + this.wanted*(this.difficulty==='hard'?10:7);
+      const speed = e.type === 'elite' ? base+d.eliteBulletBonus : e.type === 'boss' ? base+d.bossBulletBonus : base;
       if (e.type === 'riot' || e.type === 'boss') {
         const spreads = e.type === 'boss' ? [-0.24,0,0.24] : [-0.16,0.16];
         for (const a of spreads) {
@@ -817,7 +856,8 @@
       ctx.translate(sx,sy);
       this.drawSky();
       this.drawCity();
-      if (this.state==='menu') this.drawMenuScene();
+      if (this.state==='intro') this.drawIntroScene();
+      else if (this.state==='menu') this.drawMenuScene();
       else this.drawGameScene();
       ctx.restore();
       if (this.flash>0) { ctx.fillStyle=`rgba(255,90,110,${Math.min(.28,this.flash*.25)})`;ctx.fillRect(0,0,C.W,C.H); }
@@ -864,6 +904,41 @@
         ctx.fillRect((b.x+5+c*7)|0,(layer.base-b.h+7+r*9)|0,2,2);
       }
       ctx.globalAlpha=1;
+    }
+
+    drawIntroScene() {
+      const ctx=this.ctx;
+      const now=performance.now();
+      const bob=Math.sin(now/360)*4;
+      ctx.fillStyle='rgba(6,7,11,.20)';ctx.fillRect(0,0,C.W,C.H);
+
+      // Distant police traffic overhead.
+      for(let i=0;i<4;i++){
+        const x=((now*0.018+i*123)%(C.W+90))-60;
+        const y=33+i*11+Math.sin(now/600+i)*4;
+        this.drawUfo({x,y,w:20,h:10,type:'scout',age:now/1000,phase:i,hp:1},0.72);
+      }
+
+      // Large base-form rider / hover-bike idle.
+      this.drawPlayerSprite(C.W*0.42,C.H*0.49+bob,4.7,true);
+
+      ctx.save();
+      ctx.textAlign='center';
+      ctx.font='34px "Press Start 2P", monospace';
+      ctx.fillStyle='#ad82e6';
+      ctx.shadowColor='#5e367d';ctx.shadowOffsetX=3;ctx.shadowOffsetY=3;
+      ctx.fillText('ALEAN!',C.W/2,44);
+      ctx.font='11px "Press Start 2P", monospace';
+      ctx.fillStyle='#79c889';
+      ctx.shadowColor='#244c30';ctx.shadowOffsetX=2;ctx.shadowOffsetY=2;
+      ctx.fillText('by Max Starr',C.W/2,64);
+      ctx.shadowColor='transparent';
+      if(Math.floor(now/520)%2===0){
+        ctx.font='7px "Press Start 2P", monospace';
+        ctx.fillStyle='#d7d9de';
+        ctx.fillText('PRESS ANY BUTTON',C.W/2,C.H-16);
+      }
+      ctx.restore();
     }
 
     drawMenuScene() {
