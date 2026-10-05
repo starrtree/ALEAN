@@ -13,8 +13,9 @@
   test('ALEAN dimensions stay 16:9',()=>eq(C.W/C.H,16/9));
   test('collision overlap true',()=>ok(M.overlap({x:0,y:0,w:10,h:10},{x:9,y:9,w:4,h:4})));
   test('collision overlap false',()=>eq(M.overlap({x:0,y:0,w:10,h:10},{x:11,y:0,w:2,h:2}),false));
-  test('one heart awarded at third kill',()=>eq(M.heartAwardsBetween(2,3),1));
-  test('multi-kill awards every crossed milestone',()=>eq(M.heartAwardsBetween(2,7),2));
+  test('Neurovine direct hit awards one heart below cap',()=>eq(M.neurovineHeartReward(3,8),1));
+  test('Neurovine heart reward stops at cap',()=>eq(M.neurovineHeartReward(8,8),0));
+  test('building collision damage is two hearts',()=>eq(C.buildingDamage,2));
   test('wanted level begins at 1',()=>eq(M.wantedLevel(0,0),1));
   test('wanted level caps at 5',()=>eq(M.wantedLevel(999,999),5));
   test('higher wanted level spawns faster',()=>ok(M.spawnInterval(5)<M.spawnInterval(1)));
@@ -22,6 +23,8 @@
   test('menu audio filename uses repo capitalization',()=>ok(C.audio.menu.endsWith('ALEAN_Menu.m4a')));
   test('game track is real ALEAN file',()=>ok(C.audio.song.endsWith('ALEAN.m4a')));
   test('engine intro + loop configured',()=>ok(C.audio.engineIntro.includes('HOVER-ENGINE_intro')&&C.audio.engineLoop.includes('HOVER-ENGINE_loop')));
+  test('boss fight soundtrack is configured',()=>ok(C.audio.boss.endsWith('bitty-boss-fight-soudntrack.mp3')));
+  test('boss soundtrack loops at 38 seconds',()=>eq(C.audio.bossLoopEnd,38));
   test('provided laser and bomb SFX configured',()=>ok(C.audio.laser.endsWith('laser.mp3')&&C.audio.bomb.endsWith('gameboy_pluck.mp3')));
   test('official HyperFollow is present',()=>eq(C.links.hyperfollow,'https://distrokid.com/hyperfollow/maxstarr/alean'));
   test('Spotify deep link is the supplied ALEAN track',()=>eq(C.links.spotify,'https://open.spotify.com/track/1I3exfFxPVoPuRFz8Vavui?autoplay_ok=1'));
@@ -43,11 +46,16 @@
   test('medium restores the pre-easing spawn curve',()=>eq(C.difficulties.medium.spawn[1],1.15));
   test('medium restores original wanted timing',()=>eq(M.wantedLevel(28,0,'medium'),2));
   test('medium restores fixed normal police bullet base',()=>ok(C.difficulties.medium.bulletBase===145&&C.difficulties.medium.bulletWantedStep===0));
-  test('hard world moves faster than medium',()=>ok(C.difficulties.hard.worldSpeed>C.difficulties.medium.worldSpeed));
-  test('hard spawns police faster than medium',()=>ok(M.spawnInterval(1,'hard')<M.spawnInterval(1,'medium')));
+  test('hard world is dramatically faster than medium',()=>ok(C.difficulties.hard.worldSpeed>=C.difficulties.medium.worldSpeed*1.6));
+  test('hard spawns police dramatically faster than medium',()=>ok(M.spawnInterval(1,'hard')<=M.spawnInterval(1,'medium')*0.55));
+  test('hard police bullets are much faster than medium',()=>ok(C.difficulties.hard.bulletBase>=C.difficulties.medium.bulletBase*1.5));
+  test('hard mothership is substantially tougher than medium',()=>ok(C.difficulties.hard.bossHp>=C.difficulties.medium.bossHp*2));
   test('hover taps are shorter than the original -250 impulse',()=>ok(Math.abs(C.difficulties.easy.flapVelocity)<250&&Math.abs(C.difficulties.medium.flapVelocity)<250));
   test('easy mothership has less HP than medium',()=>ok(C.difficulties.easy.bossHp<C.difficulties.medium.bossHp));
   test('easy mothership drones are slower than medium',()=>ok(C.difficulties.easy.bossDroneSpeed<C.difficulties.medium.bossDroneSpeed));
+  test('sky lyric callouts are at most three words',()=>ok(C.skyLyrics.every(c=>c.text.trim().split(/\s+/).length<=3)));
+  test('sky lyric callouts are slowed for readability',()=>ok(C.skyLyrics.every(c=>c.duration>=4.8)));
+  test('hover taps are shorter and more precise than v2.2',()=>ok(Math.abs(C.difficulties.easy.flapVelocity)<=190&&Math.abs(C.difficulties.medium.flapVelocity)<=192));
 
   document.getElementById('summary').textContent=`${pass} passed / ${fail} failed`;
   document.body.dataset.ok=fail===0?'true':'false';
