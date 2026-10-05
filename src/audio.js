@@ -42,7 +42,8 @@
         if (typeof this.onEngineIntroEnded === 'function') this.onEngineIntroEnded();
       });
       this.boss.addEventListener('timeupdate', () => {
-        if (this.bossActive && this.boss.currentTime >= 38) {
+        const loopEnd = this.config.audio.bossLoopEnd || 38;
+        if (this.bossActive && this.boss.currentTime >= loopEnd) {
           this.boss.currentTime = 0;
           this._safePlay(this.boss);
         }
@@ -99,7 +100,7 @@
       this.muted = !!v;
       localStorage.setItem('alean_muted', this.muted ? '1' : '0');
       this._applyVolumes();
-      if (!this.muted && this.unlocked && this.menu.paused && this.song.paused) this.playMenu();
+      if (!this.muted && this.unlocked && !this.bossActive && this.menu.paused && this.song.paused) this.playMenu();
     }
 
     stopAll() {
