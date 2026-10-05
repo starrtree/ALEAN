@@ -20,13 +20,17 @@
       this.song = new Audio(A.song);
       this.engineIntro = new Audio(A.engineIntro);
       this.engineLoop = new Audio(A.engineLoop);
+      this.boss = new Audio(A.boss);
       this.laser = new Audio(A.laser);
       this.bomb = new Audio(A.bomb);
 
       this.menu.loop = true;
       this.engineLoop.loop = true;
+      this.boss.loop = false;
+      this.bossActive = false;
       this.song.preload = this.menu.preload = 'auto';
       this.engineIntro.preload = this.engineLoop.preload = 'auto';
+      this.boss.preload = 'auto';
       this.laser.preload = this.bomb.preload = 'auto';
 
       this.song.addEventListener('ended', () => {
@@ -36,6 +40,18 @@
         this.engineLoop.currentTime = 0;
         this._safePlay(this.engineLoop);
         if (typeof this.onEngineIntroEnded === 'function') this.onEngineIntroEnded();
+      });
+      this.boss.addEventListener('timeupdate', () => {
+        if (this.bossActive && this.boss.currentTime >= 38) {
+          this.boss.currentTime = 0;
+          this._safePlay(this.boss);
+        }
+      });
+      this.boss.addEventListener('ended', () => {
+        if (this.bossActive) {
+          this.boss.currentTime = 0;
+          this._safePlay(this.boss);
+        }
       });
       this._applyVolumes();
     }
@@ -64,6 +80,7 @@
       this.song.volume = this.musicVolume * mute;
       this.engineIntro.volume = this.engineVolume * mute;
       this.engineLoop.volume = this.engineVolume * mute;
+      this.boss.volume = this.musicVolume * 0.92 * mute;
       this.laser.volume = this.sfxVolume * mute;
       this.bomb.volume = this.sfxVolume * mute;
     }
@@ -86,7 +103,7 @@
     }
 
     stopAll() {
-      [this.menu, this.song, this.engineIntro, this.engineLoop].forEach(a => {
+      [this.menu, this.song, this.engineIntro, this.engineLoop, this.boss].forEach(a => {
         a.pause();
         try { a.currentTime = 0; } catch (_) {}
       });
@@ -96,6 +113,8 @@
       this.song.pause();
       this.engineIntro.pause();
       this.engineLoop.pause();
+      this.boss.pause();
+      this.bossActive = false;
       try { this.menu.currentTime = this.menu.currentTime || 0; } catch (_) {}
       if (this.unlocked) this._safePlay(this.menu);
     }
@@ -105,6 +124,9 @@
       this.song.pause();
       this.engineIntro.pause();
       this.engineLoop.pause();
+      this.boss.pause();
+      this.bossActive = false;
+      try { this.boss.currentTime = 0; } catch (_) {}
       this.song.loop = !!endless;
       this.song.currentTime = 0;
       this.engineIntro.currentTime = 0;
@@ -115,20 +137,43 @@
     }
 
     pauseRun() {
-      [this.song, this.engineIntro, this.engineLoop].forEach(a => a.pause());
+      [this.song, this.engineIntro, this.engineLoop, this.boss].forEach(a => a.pause());
     }
 
     resumeRun() {
+      if (this.bossActive) {
+        this._safePlay(this.boss);
+        return;
+      }
       if (!this.song.ended) this._safePlay(this.song);
       if (!this.engineIntro.ended && this.engineIntro.currentTime > 0) this._safePlay(this.engineIntro);
       else this._safePlay(this.engineLoop);
     }
 
+    startBossMusic() {
+      this.song.pause();
+      this.engineIntro.pause();
+      this.engineLoop.pause();
+      this.menu.pause();
+      this.bossActive = true;
+      try { this.boss.currentTime = 0; } catch (_) {}
+      this._applyVolumes();
+      this._safePlay(this.boss);
+    }
+
+    stopBossMusic({ resumeRun = false } = {}) {
+      this.boss.pause();
+      try { this.boss.currentTime = 0; } catch (_) {}
+      this.bossActive = false;
+      if (resumeRun) this.resumeRun();
+    }
+
     stopRun({ returnToMenu = false } = {}) {
-      [this.song, this.engineIntro, this.engineLoop].forEach(a => {
+      [this.song, this.engineIntro, this.engineLoop, this.boss].forEach(a => {
         a.pause();
         try { a.currentTime = 0; } catch (_) {}
       });
+      this.bossActive = false;
       if (returnToMenu) this.playMenu();
     }
 
