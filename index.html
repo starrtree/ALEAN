@@ -16,7 +16,7 @@
     <section class="game-frame">
       <canvas id="game" width="384" height="216" aria-label="ALEAN Neon Flight gameplay"></canvas>
 
-      <button id="soundGate" class="sound-gate" type="button">TAP / PRESS ANY KEY FOR SOUND</button>
+      <button id="soundGate" class="sound-gate hidden" type="button" aria-hidden="true">PRESS ANY BUTTON</button>
       <button id="pauseButton" class="pause-fab" type="button" aria-label="Pause">Ⅱ</button>
 
       <div id="overlay" class="overlay">
@@ -38,6 +38,13 @@
             <button data-screen="settingsScreen">⚙ SETTINGS</button>
             <button data-screen="creditsScreen">✦ CREDITS</button>
           </div>
+          <div class="difficulty-picker" aria-label="Difficulty selection">
+            <span>DIFFICULTY</span>
+            <button type="button" data-difficulty="easy">EASY</button>
+            <button type="button" data-difficulty="medium">MEDIUM</button>
+            <button type="button" data-difficulty="hard">HARD</button>
+          </div>
+          <div id="difficultyDescription" class="mode-note">Easy keeps the speed but gives you more room to learn the chase.</div>
           <div class="mode-note">ALEAN RUN ends when the song ends. ENDLESS keeps the chase alive.</div>
         </section>
 
@@ -51,7 +58,7 @@
         <section id="howScreen" class="screen panel-screen">
           <header><button data-back>← BACK</button><div><p class="eyebrow">FIELD MANUAL</p><h3>HOW TO PLAY</h3></div></header>
           <div class="two-col">
-            <div class="info-card"><b>MOVE</b><p>SPACE / W / ↑ — flap upward. Ground contact does not trap you; you can launch again immediately.</p></div>
+            <div class="info-card"><b>MOVE</b><p>SPACE / W / ↑ — short, precise hover taps. Ground contact does not trap you; you can launch again immediately.</p></div>
             <div class="info-card"><b>PURPLE LASER</b><p>F by default — fast precision shot. A direct kill flashes the police UFO purple before it breaks apart. Remap it in Settings.</p></div>
             <div class="info-card"><b>NEUROVINE BOMB</b><p>E by default — gravity-driven biological bomb. A hit grows green vines through the target, detonates, and chain-destroys nearby UFOs. Remap it in Settings.</p></div>
             <div class="info-card"><b>STARRDRIVE</b><p>SHIFT / X — spend 50 boost energy for speed, invulnerability and x2 scoring. Near-misses and kills recharge it.</p></div>
@@ -99,6 +106,7 @@
             <label>LASER KEY <button id="laserKeyBtn" type="button" class="keybind-btn">F</button></label>
             <label>BOMB KEY <button id="bombKeyBtn" type="button" class="keybind-btn">E</button></label>
             <label>BOOST KEY <button id="boostKeyBtn" type="button" class="keybind-btn">SHIFT</button></label>
+            <label>DIFFICULTY <select id="difficultySelect" aria-label="Difficulty"></select></label>
             <label>HOVER-BIKE PALETTE <select id="paletteSelect" aria-label="Hover bike palette"></select></label>
             <p id="keybindHint" class="tiny">Click a key button, then press the new key. WASD / arrow keys are reserved for boss-flight movement.</p>
           </div>
@@ -114,6 +122,21 @@
             <p><b>MISSION:</b> Escape the surveillance city before the track ends.</p>
           </div>
           <button class="streamAnywhere music-cta">♫ STREAM / SAVE ALEAN!</button>
+        </section>
+
+        <section id="bossBriefScreen" class="screen compact-screen boss-brief-screen">
+          <p class="eyebrow">PURSUIT PHASE SHIFT</p>
+          <h3>⚠ BOSS MODE ⚠</h3>
+          <p id="bossBriefDifficulty" class="boss-difficulty">EASY MOTHERSHIP</p>
+          <p class="panel-copy">Gravity is about to disengage and the camera will pull back.</p>
+          <div class="boss-control-grid">
+            <div><b>FLY</b><span>WASD / ARROWS</span></div>
+            <div><b>LASER</b><span id="bossLaserKey">F</span></div>
+            <div><b>NEUROVINE</b><span id="bossBombKey">E</span></div>
+            <div><b>BOOST</b><span id="bossBoostKey">SHIFT</span></div>
+          </div>
+          <p class="tiny">Shots auto-aim at the nearest police craft in Boss Mode. On mobile, a directional pad appears automatically.</p>
+          <button id="startBossBtn" class="primary">▶ ENTER BOSS MODE</button>
         </section>
 
         <section id="pauseScreen" class="screen compact-screen">
