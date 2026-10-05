@@ -621,7 +621,7 @@
         const top = {x:g.x,y:0,w:g.w,h:g.gapTop};
         const bot = {x:g.x,y:g.gapBottom,w:g.w,h:C.H-g.gapBottom};
         if (M.overlap(p,top) || M.overlap(p,bot)) {
-          g.hit = true; this.damagePlayer(2);
+          g.hit = true; this.damagePlayer(C.buildingDamage);
         }
       }
 
@@ -679,11 +679,12 @@
     }
 
     awardNeurovineHeart() {
-      if (this.hearts >= C.maxHearts) {
+      const reward=M.neurovineHeartReward(this.hearts,C.maxHearts);
+      if (!reward) {
         this.floatText(this.player.x+6,this.player.y-12,'BIO CHARGE MAX','#88d69a');
         return;
       }
-      this.hearts += 1;
+      this.hearts += reward;
       this.floatText(this.player.x+6,this.player.y-12,'+ BIO HEART','#70df8c');
     }
 
