@@ -412,7 +412,8 @@
         const d=this.difficultyConfig;
         this.spawnClock = Math.max(d.bossDroneMin, d.bossDroneBase - level*d.bossDroneStep) * (0.9 + Math.random()*0.4);
         const multiChance=this.difficulty==='easy'?0.12:this.difficulty==='medium'?0.34:0.58;
-        const count = level >= 4 && Math.random() < multiChance ? 2 : 1;
+        let count = level >= 4 && Math.random() < multiChance ? 2 : 1;
+        if (this.difficulty==='hard' && level>=3 && Math.random()<0.48) count=3;
         for (let i=0;i<count;i++) this.enemies.push(this.makeArenaDrone());
         return;
       }
@@ -420,6 +421,7 @@
       let count = 1;
       if (level >= 3 && Math.random() < 0.32) count = 2;
       if (level >= 5 && Math.random() < 0.28) count = 3;
+      if (this.difficulty==='hard' && level>=2 && Math.random()<0.68) count=Math.min(3,count+1);
       const baseY = 35 + Math.random() * (C.H - 95);
       for (let i=0; i<count; i++) {
         const type = this.pickEnemyType(level);
@@ -465,7 +467,7 @@
       this.state = 'play';
       this.bossMode = true;
       this.bossTransition = 1;
-      this.audio.resumeRun();
+      this.audio.startBossMusic();
       this.gates.length = 0;
       this.enemyShots.length = 0;
       this.enemies.length = 0;
@@ -491,6 +493,7 @@
       this.enemyShots.length=0;
       this.spawnClock=1.1;
       this.gateClock=2.5;
+      this.audio.stopBossMusic({ resumeRun:true });
       window.dispatchEvent(new Event('alean:bossend'));
     }
 
@@ -618,7 +621,7 @@
         const top = {x:g.x,y:0,w:g.w,h:g.gapTop};
         const bot = {x:g.x,y:g.gapBottom,w:g.w,h:C.H-g.gapBottom};
         if (M.overlap(p,top) || M.overlap(p,bot)) {
-          g.hit = true; this.damagePlayer(1);
+          g.hit = true; this.damagePlayer(2);
         }
       }
 
@@ -643,8 +646,9 @@
           if (!M.overlap(b,e)) continue;
           const cx=e.x+e.w/2, cy=e.y+e.h/2;
           this.bombs.splice(i,1);
+          this.awardNeurovineHeart();
           this.plantExplosion(cx,cy,46);
-          this.destroyEnemiesInRadius(cx,cy,46);
+          this.destroyEnemiesInRadius(cx,cy,46,e);
           detonated = true;
           break;
         }
@@ -674,23 +678,41 @@
       }
     }
 
-    destroyEnemiesInRadius(cx,cy,r) {
+    awardNeurovineHeart() {
+      if (this.hearts >= C.maxHearts) {
+        this.floatText(this.player.x+6,this.player.y-12,'BIO CHARGE MAX','#88d69a');
+        return;
+      }
+      this.hearts += 1;
+      this.floatText(this.player.x+6,this.player.y-12,'+ BIO HEART','#70df8c');
+    }
+
+    destroyEnemiesInRadius(cx,cy,r,directTarget=null) {
       const targets=[];
       for (let j=this.enemies.length-1;j>=0;j--) {
         const e=this.enemies[j];
         const dx=e.x+e.w/2-cx, dy=e.y+e.h/2-cy;
         if (dx*dx+dy*dy <= r*r) targets.push(j);
       }
-      const chain = targets.length;
+      let destroyed=0;
       for (const j of targets) {
         const e=this.enemies[j];
-        this.destroyEnemy(e,j,1 + Math.max(0,chain-1)*0.25, false, 'bomb');
+        if (!e || e.dead) continue;
+        if (e.type==='boss') {
+          e.hp -= e===directTarget ? 4 : 2;
+          this.plantExplosion(e.x+e.w/2,e.y+e.h/2,34);
+          this.floatText(e.x+e.w/2,e.y-10,e===directTarget?'BIO CORE HIT -4':'VINE SPLASH -2','#7fe18e');
+          if (e.hp<=0) { this.destroyEnemy(e,j,1.4,false,'bomb'); destroyed++; }
+          continue;
+        }
+        this.destroyEnemy(e,j,1 + Math.max(0,targets.length-1)*0.25, false, 'bomb');
+        destroyed++;
       }
-      if (chain >= 2) {
-        this.combo = Math.min(8, chain);
-        this.bestChain = Math.max(this.bestChain, chain);
-        this.score += chain*chain*90;
-        this.floatText(cx,cy-18,`NEUROVINE CHAIN x${chain}`,'#8fc59a');
+      if (destroyed >= 2) {
+        this.combo = Math.min(8, destroyed);
+        this.bestChain = Math.max(this.bestChain, destroyed);
+        this.score += destroyed*destroyed*90;
+        this.floatText(cx,cy-18,`NEUROVINE CHAIN x${destroyed}`,'#8fc59a');
       }
     }
 
@@ -701,13 +723,7 @@
         x:e.x,y:e.y,w:e.w,h:e.h,type:e.type,phase:e.phase||0,cause,
         life:cause==='bomb'?0.34:0.18,max:cause==='bomb'?0.34:0.18
       });
-      const oldKills=this.kills;
       this.kills += 1;
-      const heartDelta = M.heartAwardsBetween(oldKills,this.kills);
-      if (heartDelta > 0) {
-        this.hearts = Math.min(C.maxHearts, this.hearts + heartDelta);
-        this.floatText(this.player.x+6,this.player.y-12,'+ HEART','#f48c9d');
-      }
       this.score += (e.score||100) * mult * (this.player.boost>0?2:1);
       this.player.boostEnergy = M.clamp(this.player.boostEnergy + (e.type==='boss'?40:10),0,100);
       if (cause === 'bomb') this.plantExplosion(e.x+e.w/2,e.y+e.h/2,e.type==='boss'?58:28);
@@ -741,7 +757,7 @@
     }
 
     spawnPickup(x,y) {
-      const pool=['shield','jammer','gravity','hyper','repair','starseed','boost'];
+      const pool=['shield','jammer','gravity','hyper','starseed','boost'];
       const type=pool[(Math.random()*pool.length)|0];
       this.pickups.push({type,x,y,w:11,h:11,life:9,phase:Math.random()*6.2});
     }
@@ -750,13 +766,12 @@
       const p=this.player;
       const labels={
         shield:'PHASE SHIELD', jammer:'POLICE JAMMER', gravity:'GRAVITY SNARE',
-        hyper:'LASER HYPERCHARGE', repair:'REPAIR HEART', starseed:'STARRSEED +500', boost:'BOOST CELL'
+        hyper:'LASER HYPERCHARGE', starseed:'STARRSEED +500', boost:'BOOST CELL'
       };
       if (type==='shield') p.shield=1;
       if (type==='jammer') this.jammer=6;
       if (type==='gravity') this.gravitySnare=6;
       if (type==='hyper') this.hyper=7;
-      if (type==='repair') this.hearts=Math.min(C.maxHearts,this.hearts+1);
       if (type==='starseed') { this.score+=500; p.boostEnergy=M.clamp(p.boostEnergy+35,0,100); }
       if (type==='boost') p.boostEnergy=M.clamp(p.boostEnergy+50,0,100);
       this.floatText(p.x+8,p.y-12,labels[type]||type.toUpperCase(),'#e9d17f');
@@ -854,11 +869,14 @@
       const sy=this.shake>0?(Math.random()-.5)*this.shake:0;
       ctx.save();
       ctx.translate(sx,sy);
-      this.drawSky();
-      this.drawCity();
-      if (this.state==='intro') this.drawIntroScene();
-      else if (this.state==='menu') this.drawMenuScene();
-      else this.drawGameScene();
+      if (this.state==='intro') {
+        this.drawIntroScene();
+      } else {
+        this.drawSky();
+        this.drawCity();
+        if (this.state==='menu') this.drawMenuScene();
+        else this.drawGameScene();
+      }
       ctx.restore();
       if (this.flash>0) { ctx.fillStyle=`rgba(255,90,110,${Math.min(.28,this.flash*.25)})`;ctx.fillRect(0,0,C.W,C.H); }
     }
@@ -909,34 +927,62 @@
     drawIntroScene() {
       const ctx=this.ctx;
       const now=performance.now();
-      const bob=Math.sin(now/360)*4;
-      ctx.fillStyle='rgba(6,7,11,.20)';ctx.fillRect(0,0,C.W,C.H);
+      const seconds=now/1000;
+      ctx.fillStyle='#000';ctx.fillRect(0,0,C.W,C.H);
 
-      // Distant police traffic overhead.
-      for(let i=0;i<4;i++){
-        const x=((now*0.018+i*123)%(C.W+90))-60;
-        const y=33+i*11+Math.sin(now/600+i)*4;
-        this.drawUfo({x,y,w:20,h:10,type:'scout',age:now/1000,phase:i,hp:1},0.72);
+      // Thin white slipstream lines: clean motion on a pure black title card.
+      ctx.save();
+      for(let i=0;i<28;i++){
+        const laneY=10+((i*31)%196);
+        const cycle=C.W+120;
+        const x=cycle-((now*(0.07+(i%5)*0.012)+i*47)%cycle)-65;
+        const len=14+(i%6)*7;
+        ctx.globalAlpha=.10+(i%4)*.055;
+        ctx.fillStyle='#fff';
+        ctx.fillRect(x|0,laneY|0,len,1);
+      }
+      ctx.restore();
+
+      // Occasional distant fly-bys: quiet stretches, then 1, 2, or 3 police UFOs.
+      const phase=seconds%12;
+      let passCount=0,start=0,duration=1;
+      if(phase>=1.4&&phase<3.7){passCount=1;start=1.4;duration=2.3;}
+      else if(phase>=5.0&&phase<7.6){passCount=2;start=5.0;duration=2.6;}
+      else if(phase>=9.0&&phase<11.6){passCount=3;start=9.0;duration=2.6;}
+      if(passCount){
+        const p=(phase-start)/duration;
+        for(let i=0;i<passCount;i++){
+          const x=C.W+45-(C.W+100)*(p-i*0.09);
+          const y=76+i*16+Math.sin(now/650+i)*2;
+          if(x>-55&&x<C.W+55){
+            ctx.save();ctx.globalAlpha=.26+i*.06;
+            this.drawUfo({x,y,w:21,h:10,type:i===2?'elite':'scout',age:seconds,phase:i,hp:1},0.62+i*.05);
+            ctx.restore();
+          }
+        }
       }
 
-      // Large base-form rider / hover-bike idle.
-      this.drawPlayerSprite(C.W*0.39,C.H*0.48+bob,5.8,true);
+      // Centered base-form rider, smaller than v2.2.
+      const scale=4.15;
+      const visualX=C.W/2+11*scale;
+      const visualY=C.H/2+3*scale+18+Math.sin(now/420)*2.2;
+      this.drawPlayerSprite(visualX,visualY,scale,true);
 
       ctx.save();
       ctx.textAlign='center';
-      ctx.font='34px "Press Start 2P", monospace';
+      ctx.font='30px "Press Start 2P", monospace';
       ctx.fillStyle='#ad82e6';
-      ctx.shadowColor='#5e367d';ctx.shadowOffsetX=3;ctx.shadowOffsetY=3;
-      ctx.fillText('ALEAN!',C.W/2,44);
-      ctx.font='11px "Press Start 2P", monospace';
-      ctx.fillStyle='#79c889';
-      ctx.shadowColor='#244c30';ctx.shadowOffsetX=2;ctx.shadowOffsetY=2;
-      ctx.fillText('by Max Starr',C.W/2,64);
+      ctx.shadowColor='#4e2c70';ctx.shadowOffsetX=3;ctx.shadowOffsetY=3;
+      ctx.fillText('ALEAN!',C.W/2,36);
+      ctx.font='10px "Press Start 2P", monospace';
+      ctx.fillStyle='#78d18b';
+      ctx.shadowColor='#22472b';ctx.shadowOffsetX=2;ctx.shadowOffsetY=2;
+      ctx.fillText('by Max Starr',C.W/2,54);
       ctx.shadowColor='transparent';
       if(Math.floor(now/520)%2===0){
         ctx.font='7px "Press Start 2P", monospace';
-        ctx.fillStyle='#d7d9de';
-        ctx.fillText('PRESS ANY BUTTON',C.W/2,C.H-16);
+        ctx.fillStyle='#f1f1f1';
+        ctx.fillText('PRESS ANY BUTTON',C.W/2,C.H-15);
       }
       ctx.restore();
     }
@@ -1010,7 +1056,7 @@
     }
 
     currentLyric() {
-      if(!this.settings.lyrics||this.mode!=='song')return null;
+      if(!this.settings.lyrics||this.mode!=='song'||this.bossMode||this.state==='bossbrief')return null;
       const valid=C.lyrics.filter(l=>Number.isFinite(l.t));
       const t=this.songTime();
       let idx=-1;
@@ -1054,15 +1100,21 @@
     }
 
     drawPunchline() {
-      const data=this.currentLyric();if(!data||!data.lyric.punch)return;
-      const ctx=this.ctx,text=data.lyric.text.toUpperCase();
+      if(!this.settings.lyrics||this.mode!=='song'||this.bossMode||this.state==='bossbrief')return;
+      const t=this.songTime();
+      const cue=C.skyLyrics.find(c=>t>=c.t&&t<c.t+c.duration);
+      if(!cue)return;
+      const ctx=this.ctx;
+      const progress=M.clamp((t-cue.t)/cue.duration,0,1);
+      const text=cue.text.toUpperCase();
       ctx.save();
       ctx.font='18px "Press Start 2P", monospace';
       const tw=ctx.measureText(text).width;
-      const x=C.W-(C.W+tw)*data.progress;
-      ctx.globalAlpha=.075;
+      // Intentionally slower than the karaoke line so a player can read it without losing the chase.
+      const x=C.W+22-(C.W+tw+44)*progress;
+      ctx.globalAlpha=.065;
       ctx.fillStyle='#f0d05f';
-      ctx.fillText(text,x,72);
+      ctx.fillText(text,x,70);
       ctx.restore();
     }
 
