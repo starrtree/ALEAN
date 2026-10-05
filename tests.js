@@ -10,7 +10,17 @@
   function ok(v,msg='expected truthy'){if(!v)throw new Error(msg)}
 
   const C=window.ALEAN_CFG,M=window.ALEAN_MATH;
-  test('ALEAN dimensions stay 16:9',()=>eq(C.W/C.H,16/9));
+  test('ALEAN dimensions match device playfield',()=>{
+    eq(C.W/C.H,C.mobilePortrait?9/16:16/9);
+  });
+  test('mobile portrait uses a 216x384 world',()=>{
+    if(C.mobilePortrait) ok(C.W===216&&C.H===384);
+    else ok(C.W===384&&C.H===216);
+  });
+  test('mobile player starts further left for narrow playfield',()=>{
+    if(C.mobilePortrait) eq(C.PLAYER_X,42);
+    else eq(C.PLAYER_X,88);
+  });
   test('collision overlap true',()=>ok(M.overlap({x:0,y:0,w:10,h:10},{x:9,y:9,w:4,h:4})));
   test('collision overlap false',()=>eq(M.overlap({x:0,y:0,w:10,h:10},{x:11,y:0,w:2,h:2}),false));
   test('Neurovine direct hit awards one heart below cap',()=>eq(M.neurovineHeartReward(3,8),1));

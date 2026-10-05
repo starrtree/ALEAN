@@ -11,9 +11,9 @@
   const screens = [...document.querySelectorAll('.screen')];
   const soundGate = document.getElementById('soundGate');
   const mobile = document.getElementById('mobileControls');
-  const bossPad = document.getElementById('bossPad');
-  const flapBtn = document.getElementById('flapBtn');
+  const mobileTapHint = document.getElementById('mobileTapHint');
   const ccButton = document.getElementById('ccButton');
+  document.documentElement.classList.toggle('mobile-portrait', C.mobilePortrait);
 
   function show(id) {
     screens.forEach(s => s.classList.toggle('active', s.id === id));
@@ -95,31 +95,58 @@
     game.startBossMode();
   });
 
-  // Mobile / touch controls.
+  // Mobile / touch controls. The arena itself is the movement surface.
   const actionMap = {
-    flapBtn:'flap', laserBtn:'laser', bombBtn:'bomb', boostBtn:'boost'
+    laserBtn:'laser', bombBtn:'bomb', boostBtn:'boost'
   };
   Object.entries(actionMap).forEach(([id, action]) => {
     const el = document.getElementById(id);
     ['pointerdown','touchstart'].forEach(ev => el.addEventListener(ev, e => {
-      e.preventDefault(); game.externalAction(action);
+      e.preventDefault();
+      e.stopPropagation();
+      game.externalAction(action);
     }, { passive:false }));
   });
 
-  const directionMap = {
-    bossUpBtn:'up', bossLeftBtn:'left', bossDownBtn:'down', bossRightBtn:'right'
-  };
-  Object.entries(directionMap).forEach(([id, direction]) => {
-    const el = document.getElementById(id);
-    const on = e => { e.preventDefault(); game.setBossDirection(direction, true); };
-    const off = e => { e.preventDefault(); game.setBossDirection(direction, false); };
-    el.addEventListener('pointerdown', on, { passive:false });
-    el.addEventListener('pointerup', off, { passive:false });
-    el.addEventListener('pointercancel', off, { passive:false });
-    el.addEventListener('pointerleave', off, { passive:false });
-    el.addEventListener('touchstart', on, { passive:false });
-    el.addEventListener('touchend', off, { passive:false });
-  });
+  if (C.mobilePortrait) {
+    let bossPointerId = null;
+
+    function canvasPoint(e) {
+      const rect=canvas.getBoundingClientRect();
+      return {
+        x:(e.clientX-rect.left)*(C.W/rect.width),
+        y:(e.clientY-rect.top)*(C.H/rect.height)
+      };
+    }
+
+    canvas.addEventListener('pointerdown', e => {
+      if (game.state !== 'play') return;
+      e.preventDefault();
+      if (game.bossMode) {
+        bossPointerId=e.pointerId;
+        if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+        const p=canvasPoint(e);
+        game.setBossTouchTarget(p.x,p.y,true);
+      } else {
+        game.externalAction('flap');
+      }
+    }, { passive:false });
+
+    canvas.addEventListener('pointermove', e => {
+      if (!game.bossMode || bossPointerId !== e.pointerId) return;
+      e.preventDefault();
+      const p=canvasPoint(e);
+      game.setBossTouchTarget(p.x,p.y,true);
+    }, { passive:false });
+
+    const releaseBossTouch=e => {
+      if (bossPointerId !== e.pointerId) return;
+      game.setBossTouchTarget(0,0,false);
+      bossPointerId=null;
+    };
+    canvas.addEventListener('pointerup', releaseBossTouch);
+    canvas.addEventListener('pointercancel', releaseBossTouch);
+  }
 
   // Stream links.
   document.querySelectorAll('[data-stream]').forEach(a => {
@@ -285,15 +312,14 @@
   }, true);
 
   window.addEventListener('alean:runstart', () => {
-    show(null); mobile.classList.remove('hidden');
-    bossPad.classList.add('hidden');
-    flapBtn.style.display = '';
+    show(null);
+    mobile.classList.remove('hidden');
+    mobileTapHint.textContent = C.mobilePortrait ? 'TAP SCREEN = HOVER' : '';
     ccButton.classList.remove('hidden');
     syncLyricsControls();
   });
   window.addEventListener('alean:bossbrief', e => {
     mobile.classList.add('hidden');
-    bossPad.classList.add('hidden');
     ccButton.classList.add('hidden');
     const d=e.detail || {};
     const cfg=C.difficulties[d.difficulty] || C.difficulties.easy;
@@ -301,18 +327,19 @@
     document.getElementById('bossLaserKey').textContent = prettyKey(game.keybinds.laser);
     document.getElementById('bossBombKey').textContent = prettyKey(game.keybinds.bomb);
     document.getElementById('bossBoostKey').textContent = prettyKey(game.keybinds.boost);
+    const fly=document.getElementById('bossFlyControl');
+    if (fly) fly.textContent = C.mobilePortrait ? 'TOUCH / DRAG' : 'WASD / ARROWS';
     show('bossBriefScreen');
   });
   window.addEventListener('alean:bossstart', () => {
     show(null);
     mobile.classList.remove('hidden');
-    bossPad.classList.remove('hidden');
-    flapBtn.style.display = 'none';
+    mobileTapHint.textContent = C.mobilePortrait ? 'DRAG SCREEN = FLY' : '';
     ccButton.classList.add('hidden');
   });
   window.addEventListener('alean:bossend', () => {
-    bossPad.classList.add('hidden');
-    flapBtn.style.display = '';
+    game.setBossTouchTarget(0,0,false);
+    mobileTapHint.textContent = C.mobilePortrait ? 'TAP SCREEN = HOVER' : '';
     ccButton.classList.remove('hidden');
     syncLyricsControls();
   });
@@ -325,9 +352,7 @@
   window.addEventListener('alean:difficulty', () => renderDifficulty());
   window.addEventListener('alean:menu', () => {
     mobile.classList.add('hidden');
-    bossPad.classList.add('hidden');
     ccButton.classList.add('hidden');
-    flapBtn.style.display = '';
     show('homeScreen');
     renderDifficulty();
     audio.playMenu();
