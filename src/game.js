@@ -920,7 +920,7 @@
       }
 
       // Large base-form rider / hover-bike idle.
-      this.drawPlayerSprite(C.W*0.42,C.H*0.49+bob,4.7,true);
+      this.drawPlayerSprite(C.W*0.39,C.H*0.48+bob,5.8,true);
 
       ctx.save();
       ctx.textAlign='center';
