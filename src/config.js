@@ -37,12 +37,62 @@
     },
     links: {
       hyperfollow: 'https://distrokid.com/hyperfollow/maxstarr/alean',
-      spotify: 'https://open.spotify.com/search/Alean%20Max%20Starr',
-      apple: 'https://music.apple.com/us/search?term=Alean%20Max%20Starr',
-      itunes: 'https://music.apple.com/us/search?term=Alean%20Max%20Starr',
-      youtube: 'https://music.youtube.com/search?q=Alean%20Max%20Starr',
-      amazon: 'https://music.amazon.com/search/Alean%20Max%20Starr'
+      spotify: 'https://open.spotify.com/track/1I3exfFxPVoPuRFz8Vavui?autoplay_ok=1',
+      apple: 'https://music.apple.com/us/album/alean/1721627495?i=1721627496',
+      youtube: 'https://music.youtube.com/watch?v=oGB0u8gl2eM',
+      amazon: 'https://music.amazon.com/albums/B0CQ9NYCSB'
     },
+    defaultKeys: {
+      flap: 'Space',
+      laser: 'f',
+      bomb: 'e',
+      boost: 'Shift'
+    },
+    lyrics: [
+      {t:1,text:'Yeah oh oh'},
+      {t:4,text:'(Let\'s go let\'s go)'},
+      {t:6.5,text:'I do not I do not need that purple drink to feel like an alien!',punch:true},
+      {t:11,text:'I do not need that purple drink, To make me lean I\'m already high as an alien!'},
+      {t:17,text:'I just touch that green, Now Mother Nature showin\' me a scene!'},
+      {t:20,text:'It ain\'t what you think, It\'s somethin\' far off in the galaxy!'},
+      {t:23,text:'Now I done seen everything! Oh oh oh',punch:true},
+      {t:26,text:'I feel like the Earth "I just wanna (one) rock", My diamonds electric they shock'},
+      {t:29.5,text:'But I can\'t always give my light away, \'Cause y\'all like to stay in the dark'},
+      {t:33,text:'And I can\'t give my time away, To people that just wanna talk/Tok'},
+      {t:36,text:'\'Cause I\'m bout to tick(Tik), Like bish I\'m the bomb, Osama-dot-com',punch:true},
+      {t:38,text:'I\'m lit I\'m live'},
+      {t:40,text:'Mama told me to survive'},
+      {t:41.5,text:'Now get your mind right, And open up your eyes!',punch:true},
+      {t:45,text:'Cause y\'all been blind'},
+      {t:47,text:'And I was too, But it took me to open the blinds'},
+      {t:48.5,text:'Read the fine lines in the covenant, See why I won\'t ever sign away my life'},
+      {t:51,text:'Sh*t coulda been over I was down, But I found out how to get up over it'},
+      {t:55,text:'I should\'ve been known I\'m him, So fresh that I don\'t need deodorant'},
+      {t:58,text:'Yeah they should\'ve been known I\'m the realest, They just fake it and go with it'},
+      {t:61.5,text:'Hopped in a spaceship told \'em get on'},
+      {t:63,text:'I know I\'m someone that they wanna get cloned'},
+      {t:65.5,text:'Now I\'m driving a UFO so I can\'t be identified',punch:true},
+      {t:69.5,text:'No ID so I can\'t get a DUI',punch:true},
+      {t:72.5,text:'Roll with me and you might stay alive'},
+      {t:75.5,text:'Just might survive the ride',punch:true},
+      {t:77.5,text:'\'Cause I do not need that purple drink, To make me lean I\'m already high as an alien!'},
+      {t:82,text:'I just touch that green, Now Mother Nature showin\' me a scene!'},
+      {t:85,text:'It ain\'t what you think, It\'s somethin\' far off in the galaxy!'},
+      {t:88.5,text:'Now I done seen everything! Oh oh oh',punch:true},
+      {t:90,text:'(I do not need that purple drink)'},
+      {t:93,text:'(High as an alien)'},
+      {t:96.5,text:'(Now Mother Nature showin\' me a scene)'},
+      {t:102,text:'(Now I done seen everything! Ohh oh ooh)'},
+      {t:105,text:'I done seen everything, But never seen a single thing like me',punch:true},
+      {t:109,text:'I won\'t let out the demons, But I\'ll let \'em turn me to a beast'},
+      {t:113,text:'And I\'m not off a bean, But I can be an awful being'},
+      {t:117,text:'Float on that beat like a butterfly, But I turned up the sting',punch:true},
+      {t:121,text:'Can\'t tell me that you not a vegan, Clearly you don\'t want no beef'},
+      {t:125,text:'This trigger finger will light you up, Do you wanna meet ET?',punch:true},
+      {t:130,text:'I just feel like that purple drink'},
+      {t:null,text:'The way I can make them lean, Make \'em forget what they seen',ambiguous:'Provided as 2:01 after the 2:10 line; needs corrected timestamp.'},
+      {t:134.5,text:'MIB Man I Been alien!',punch:true}
+    ],
     palettes
   };
 
@@ -55,10 +105,13 @@
       return Math.max(0, Math.floor(newKills / 3) - Math.floor(oldKills / 3));
     },
     wantedLevel(elapsed, kills) {
-      return Math.min(5, 1 + Math.floor(elapsed / 28) + Math.floor(kills / 16));
+      // Keep the opening fast but readable: stars rise from survival + aggression, not immediately.
+      const timeStars = Math.floor(Math.max(0, elapsed - 18) / 34);
+      const killStars = Math.floor(kills / 18);
+      return Math.min(5, 1 + timeStars + killStars);
     },
     spawnInterval(level) {
-      return [0, 1.15, 0.92, 0.74, 0.58, 0.44][Math.max(1, Math.min(5, level))];
+      return [0, 1.55, 1.24, 0.98, 0.76, 0.58][Math.max(1, Math.min(5, level))];
     }
   };
 
