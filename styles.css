@@ -44,3 +44,122 @@ button,a,input{font:inherit}.shell{width:min(1120px,96vw)}.game-frame{position:r
 .cc-fab{position:absolute;right:9px;top:45px;z-index:8;min-width:44px;height:26px;padding:0 7px;border:1px solid #d8c45f;background:#11151ccc;color:#f0dc72;font-size:7px;cursor:pointer}
 .cc-fab.off{border-color:#666d75;color:#8d949c;text-decoration:line-through}
 .cc-fab.hidden{display:none}
+
+/* Native mobile portrait layout */
+html.mobile-portrait,
+html.mobile-portrait body{
+  width:100%;
+  min-height:100%;
+  overflow-x:hidden;
+  background:#000;
+}
+html.mobile-portrait body{
+  min-height:100dvh;
+  padding:0;
+  display:grid;
+  place-items:center;
+}
+html.mobile-portrait .shell{
+  width:min(100vw,56.25dvh);
+  max-width:none;
+}
+html.mobile-portrait .game-frame{
+  width:100%;
+  aspect-ratio:9/16;
+  border:0;
+  box-shadow:none;
+  background:#000;
+}
+html.mobile-portrait #game{
+  width:100%;
+  height:auto;
+  aspect-ratio:9/16;
+  touch-action:none;
+}
+html.mobile-portrait .overlay{
+  padding:10px;
+}
+html.mobile-portrait .screen{
+  width:94%;
+  max-height:94%;
+}
+html.mobile-portrait .home-screen{
+  max-width:94%;
+  padding:13px 12px;
+}
+html.mobile-portrait .title-stack h1{
+  font-size:34px;
+}
+html.mobile-portrait .title-stack h2{
+  font-size:15px;
+}
+html.mobile-portrait .main-menu{
+  grid-template-columns:1fr;
+  gap:6px;
+  margin-top:12px;
+}
+html.mobile-portrait .main-menu button{
+  padding:9px 8px;
+  font-size:7px;
+}
+html.mobile-portrait .difficulty-picker{
+  grid-template-columns:1fr 1fr 1fr;
+  gap:5px;
+}
+html.mobile-portrait .difficulty-picker span{
+  grid-column:1/-1;
+}
+html.mobile-portrait .mobile-controls{
+  display:block!important;
+}
+html.mobile-portrait .right-controls{
+  right:8px;
+  bottom:10px;
+  grid-template-columns:repeat(3,52px);
+  gap:5px;
+}
+html.mobile-portrait .right-controls button{
+  width:52px;
+  height:48px;
+  font-size:6px;
+  background:rgba(14,17,24,.82);
+  backdrop-filter:blur(2px);
+}
+html.mobile-portrait .mobile-tap-hint{
+  position:absolute;
+  left:8px;
+  bottom:13px;
+  max-width:88px;
+  color:rgba(235,238,241,.62);
+  font-size:6px;
+  line-height:1.45;
+  text-shadow:1px 1px #000;
+  pointer-events:none;
+}
+html.mobile-portrait .pause-fab{
+  right:8px;
+  top:8px;
+}
+html.mobile-portrait .cc-fab{
+  right:8px;
+  top:43px;
+}
+html.mobile-portrait .footer-strip{
+  display:none;
+}
+html.mobile-portrait .panel-screen h3,
+html.mobile-portrait .compact-screen h3{
+  font-size:16px;
+}
+html.mobile-portrait .panel-copy{
+  font-size:12px;
+}
+html.mobile-portrait .two-col,
+html.mobile-portrait .palette-grid,
+html.mobile-portrait .record-grid,
+html.mobile-portrait .stream-grid{
+  grid-template-columns:1fr;
+}
+html.mobile-portrait .settings-list label{
+  grid-template-columns:1fr;
+}
