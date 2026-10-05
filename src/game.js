@@ -23,10 +23,17 @@
       this.paletteKey = localStorage.getItem('alean_palette') || 'BIO_LUMEN';
       this.settings = {
         shake: localStorage.getItem('alean_shake') !== '0',
-        reducedFx: localStorage.getItem('alean_reduced_fx') === '1'
+        reducedFx: localStorage.getItem('alean_reduced_fx') === '1',
+        lyrics: localStorage.getItem('alean_lyrics') !== '0'
       };
+      try {
+        this.keybinds = Object.assign({}, C.defaultKeys, JSON.parse(localStorage.getItem('alean_keybinds') || '{}'));
+      } catch (_) {
+        this.keybinds = Object.assign({}, C.defaultKeys);
+      }
       this.records = this.loadRecords();
       this.keys = {};
+      this.bossDirs = { up:false, down:false, left:false, right:false };
       this.actions = { flap:false, laser:false, bomb:false, boost:false };
       this.bg = this.makeCity();
       this.stars = Array.from({ length: 70 }, (_, i) => ({
@@ -61,27 +68,49 @@
 
     bindInput() {
       window.addEventListener('keydown', e => {
-        const k = e.key.toLowerCase();
+        const raw = e.key === ' ' ? 'Space' : e.key;
+        const k = String(raw).toLowerCase();
         this.keys[k] = true;
         if (e.code === 'Space') {
           this.keys.space = true;
-          if (['play','countdown'].includes(this.state)) e.preventDefault();
+          if (['play','countdown','gameover','victory'].includes(this.state)) e.preventDefault();
         }
+
+        if ((this.state === 'gameover' || this.state === 'victory') && e.code === 'Space') {
+          this.start(this.mode);
+          return;
+        }
+
         if (k === 'escape' || k === 'p') {
           if (this.state === 'play') this.pause();
           else if (this.state === 'paused') this.resume();
         }
+
         if (this.state === 'play') {
-          if (k === 'l' || k === 'j') this.actions.laser = true;
-          if (k === 'k') this.actions.bomb = true;
-          if (k === 'x' || k === 'shift') this.actions.boost = true;
+          if (this.matchesKey('laser', raw)) this.actions.laser = true;
+          if (this.matchesKey('bomb', raw)) this.actions.bomb = true;
+          if (this.matchesKey('boost', raw)) this.actions.boost = true;
         }
       });
       window.addEventListener('keyup', e => {
-        const k = e.key.toLowerCase();
-        this.keys[k] = false;
+        const raw = e.key === ' ' ? 'Space' : e.key;
+        this.keys[String(raw).toLowerCase()] = false;
         if (e.code === 'Space') this.keys.space = false;
       });
+    }
+
+    matchesKey(action, raw) {
+      return String(this.keybinds[action] || '').toLowerCase() === String(raw || '').toLowerCase();
+    }
+
+    setKeybind(action, key) {
+      if (!['laser','bomb','boost'].includes(action) || !key) return;
+      this.keybinds[action] = key;
+      localStorage.setItem('alean_keybinds', JSON.stringify(this.keybinds));
+    }
+
+    setBossDirection(direction, active) {
+      if (Object.prototype.hasOwnProperty.call(this.bossDirs, direction)) this.bossDirs[direction] = !!active;
     }
 
     externalAction(name) {
@@ -120,6 +149,9 @@
       this.gateClock = 1.6;
       this.powerClock = 0;
       this.bossSpawned = false;
+      this.bossMode = false;
+      this.bossScale = 0.78;
+      this.bossTransition = 0;
       this.jammer = 0;
       this.gravitySnare = 0;
       this.hyper = 0;
@@ -135,6 +167,7 @@
       this.pickups = [];
       this.particles = [];
       this.floaters = [];
+      this.deathGhosts = [];
     }
 
     start(mode='song') {
@@ -171,6 +204,7 @@
     finishRun(escaped=false) {
       if (['gameover','victory','menu'].includes(this.state)) return;
       this.state = escaped ? 'victory' : 'gameover';
+      this.shake = this.settings.shake ? 6 : 0;
       this.audio.stopRun({ returnToMenu:false });
       this.records.bestScore = Math.max(this.records.bestScore, Math.floor(this.score));
       this.records.bestKills = Math.max(this.records.bestKills, this.kills);
@@ -207,6 +241,12 @@
 
     step(dt) {
       this.animateBackground(dt);
+      if (this.state === 'gameover' || this.state === 'victory') {
+        this.shake = Math.max(0, this.shake - dt * 3.2);
+        this.flash = Math.max(0, this.flash - dt * 1.4);
+        this.updateParticles(dt);
+        return;
+      }
       if (this.state === 'countdown') {
         this.countdown -= dt;
         if (this.countdown <= 0) this.state = 'play';
@@ -223,8 +263,8 @@
       this.spawnClock -= dt;
       this.gateClock -= dt;
       if (this.spawnClock <= 0) this.spawnWave();
-      if (this.gateClock <= 0) this.spawnGate();
-      if (!this.bossSpawned && (this.elapsed > 78 || (this.mode === 'song' && this.audio.progress > 0.72))) this.spawnBoss();
+      if (!this.bossMode && this.gateClock <= 0) this.spawnGate();
+      if (!this.bossSpawned && (this.elapsed > 82 || (this.mode === 'song' && this.audio.progress > 0.68))) this.enterBossMode();
       this.updateWorld(dt);
       this.handleCollisions();
       this.updateParticles(dt);
@@ -245,7 +285,7 @@
     }
 
     readContinuousInput() {
-      if (this.keys.space || this.keys.w || this.keys.arrowup) {
+      if (!this.bossMode && (this.keys.space || this.keys.w || this.keys.arrowup)) {
         this.actions.flap = true;
         this.keys.space = this.keys.w = this.keys.arrowup = false;
       }
@@ -293,6 +333,21 @@
 
     updatePlayer(dt) {
       const p = this.player;
+      if (this.bossMode) {
+        const up = this.keys.w || this.keys.arrowup || this.bossDirs.up;
+        const down = this.keys.s || this.keys.arrowdown || this.bossDirs.down;
+        const left = this.keys.a || this.keys.arrowleft || this.bossDirs.left;
+        const right = this.keys.d || this.keys.arrowright || this.bossDirs.right;
+        let dx=(right?1:0)-(left?1:0), dy=(down?1:0)-(up?1:0);
+        const len=Math.hypot(dx,dy)||1;
+        const speed=p.boost>0?245:178;
+        if(dx||dy){dx/=len;dy/=len;p.x+=dx*speed*dt;p.y+=dy*speed*dt;this.emitTrail(this.settings.reducedFx?1:2);}
+        const aw=C.W/this.bossScale, ah=C.H/this.bossScale;
+        p.x=M.clamp(p.x,8,aw-p.w-8);
+        p.y=M.clamp(p.y,8,ah-p.h-8);
+        p.vy=0;
+        return;
+      }
       p.vy = Math.min(C.maxFall, p.vy + C.gravity * dt);
       p.y += p.vy * dt;
       if (p.y < 5) { p.y = 5; p.vy = Math.max(0, p.vy); }
@@ -303,7 +358,13 @@
 
     spawnWave() {
       const level = this.wanted;
-      this.spawnClock = M.spawnInterval(level) * (0.8 + Math.random() * 0.45);
+      if (this.bossMode) {
+        this.spawnClock = Math.max(0.72, 1.5 - level*0.1) * (0.85 + Math.random()*0.45);
+        const count = level >= 4 && Math.random() < 0.34 ? 2 : 1;
+        for (let i=0;i<count;i++) this.enemies.push(this.makeArenaDrone());
+        return;
+      }
+      this.spawnClock = M.spawnInterval(level) * (0.9 + Math.random() * 0.5);
       let count = 1;
       if (level >= 3 && Math.random() < 0.32) count = 2;
       if (level >= 5 && Math.random() < 0.28) count = 3;
@@ -324,60 +385,110 @@
 
     makeEnemy(type, x, y) {
       const presets = {
-        scout:{w:28,h:13,vx:-105,hp:1,fire:2.2,score:100},
-        interceptor:{w:30,h:14,vx:-122,hp:1,fire:1.55,score:140},
-        riot:{w:34,h:16,vx:-88,hp:2,fire:1.22,score:220},
-        elite:{w:33,h:15,vx:-138,hp:2,fire:0.94,score:300}
+        scout:{w:28,h:13,vx:-105,hp:1,fire:3.0,score:100},
+        interceptor:{w:30,h:14,vx:-122,hp:1,fire:2.2,score:140},
+        riot:{w:34,h:16,vx:-88,hp:2,fire:1.75,score:220},
+        elite:{w:33,h:15,vx:-138,hp:2,fire:1.35,score:300}
       };
       const q = Object.assign({}, presets[type]);
       return Object.assign(q, { type, x, y, age:0, fireCd:0.7+Math.random(), phase:Math.random()*6.2, dead:false });
     }
 
-    spawnBoss() {
+    enterBossMode() {
       this.bossSpawned = true;
+      this.bossMode = true;
+      this.bossTransition = 1;
+      this.gates.length = 0;
+      this.enemyShots.length = 0;
+      this.enemies.length = 0;
+      this.player.x /= this.bossScale;
+      this.player.y /= this.bossScale;
+      const aw=C.W/this.bossScale, ah=C.H/this.bossScale;
       this.enemies.push({
-        type:'boss', x:C.W+72, y:52, w:62, h:31, vx:-52, hp:18, fire:0.48, fireCd:1, score:1800, age:0, phase:0, dead:false
+        type:'boss', x:aw-125, y:ah*0.32, w:96, h:46, vx:0, hp:30, maxHp:30,
+        fire:0.72, fireCd:1.25, score:2600, age:0, phase:0, dead:false, arena:true
       });
-      this.floatText(C.W*0.52, 48, 'POLICE COMMAND SHIP', '#ef7f7f');
+      this.spawnClock = 1.1;
+      this.floatText(aw*0.5,42,'5★ MOTHERSHIP LOCK','#ef7f7f');
+      window.dispatchEvent(new Event('alean:bossstart'));
+    }
+
+    exitBossMode() {
+      if (!this.bossMode) return;
+      this.bossMode=false;
+      this.player.x=C.PLAYER_X;
+      this.player.y=M.clamp(this.player.y*this.bossScale,20,C.H-55);
+      this.player.vy=0;
+      this.enemies=this.enemies.filter(e=>e.type==='boss');
+      this.enemyShots.length=0;
+      this.spawnClock=1.1;
+      this.gateClock=2.5;
+      window.dispatchEvent(new Event('alean:bossend'));
+    }
+
+    makeArenaDrone() {
+      const aw=C.W/this.bossScale, ah=C.H/this.bossScale;
+      const edge=(Math.random()*4)|0;
+      let x,y;
+      if(edge===0){x=-30;y=Math.random()*ah;}
+      else if(edge===1){x=aw+30;y=Math.random()*ah;}
+      else if(edge===2){x=Math.random()*aw;y=-24;}
+      else{x=Math.random()*aw;y=ah+24;}
+      const type=this.wanted>=4&&Math.random()<0.3?'elite':'interceptor';
+      const e=this.makeEnemy(type,x,y);
+      e.arenaDrone=true;e.vx=0;e.fireCd=1.1+Math.random()*0.8;
+      return e;
     }
 
     spawnGate() {
-      this.gateClock = Math.max(3.2, 5.1 - this.wanted*0.24) + Math.random()*1.3;
-      const gap = 88 - this.wanted*3;
-      const mid = 55 + Math.random()*(C.H-105);
-      this.gates.push({ x:C.W+24, w:28, gapTop:mid-gap/2, gapBottom:mid+gap/2, hit:false, passed:false });
+      this.gateClock = Math.max(3.8, 5.8 - this.wanted*0.22) + Math.random()*1.45;
+      const gap = 116 - this.wanted*4;
+      const mid = 62 + Math.random()*(C.H-124);
+      this.gates.push({ x:C.W+24, w:23, gapTop:mid-gap/2, gapBottom:mid+gap/2, hit:false, passed:false });
     }
 
     updateWorld(dt) {
       const speedMul = this.player.boost > 0 ? 1.55 : 1;
       const worldSpeed = (76 + this.wanted*8) * speedMul;
+      const aw=this.bossMode?C.W/this.bossScale:C.W;
+      const ah=this.bossMode?C.H/this.bossScale:C.H;
 
-      for (const g of this.gates) g.x -= worldSpeed * dt;
-      this.gates = this.gates.filter(g => g.x > -42);
+      if (!this.bossMode) {
+        for (const g of this.gates) g.x -= worldSpeed * dt;
+        this.gates = this.gates.filter(g => g.x > -42);
+      }
 
       for (const e of this.enemies) {
         e.age += dt;
-        let slow = this.gravitySnare > 0 ? 0.58 : 1;
-        if (e.type === 'boss') {
-          if (e.x > C.W-88) e.x += e.vx*dt*slow;
-          e.y = 48 + Math.sin(e.age*1.7)*34;
+        const slow = this.gravitySnare > 0 ? 0.58 : 1;
+        if (this.bossMode && e.type === 'boss') {
+          e.x = aw-128 + Math.sin(e.age*0.72)*28;
+          e.y = ah*0.35 + Math.sin(e.age*1.18)*52;
+        } else if (this.bossMode && e.arenaDrone) {
+          const dx=(this.player.x+this.player.w/2)-(e.x+e.w/2);
+          const dy=(this.player.y+this.player.h/2)-(e.y+e.h/2);
+          const len=Math.max(1,Math.hypot(dx,dy));
+          const chase=(e.type==='elite'?118:92)*slow;
+          e.x += dx/len*chase*dt;
+          e.y += dy/len*chase*dt;
         } else {
           e.x += (e.vx - worldSpeed*0.16) * dt * slow;
           if (e.type === 'interceptor' || e.type === 'elite') {
-            const follow = e.type === 'elite' ? 1.9 : 1.15;
-            e.y += M.clamp((this.player.y - e.y) * dt * follow, -45*dt, 45*dt);
+            const follow = e.type === 'elite' ? 1.7 : 1.05;
+            e.y += M.clamp((this.player.y - e.y) * dt * follow, -42*dt, 42*dt);
           } else {
             e.y += Math.sin(e.age*2.8 + e.phase) * 18 * dt;
           }
         }
-        if (this.gravitySnare > 0 && e.type !== 'boss') e.y += (C.H*0.48 - e.y) * dt * 0.7;
+        if (this.gravitySnare > 0 && e.type !== 'boss') e.y += (ah*0.48 - e.y) * dt * 0.7;
         e.fireCd -= dt;
-        if (this.jammer <= 0 && e.fireCd <= 0 && e.x > C.PLAYER_X+45 && e.x < C.W+15) {
+        const inFireRange=this.bossMode || (e.x > C.PLAYER_X+45 && e.x < C.W+15);
+        if (this.elapsed > 8 && this.jammer <= 0 && e.fireCd <= 0 && inFireRange) {
           this.enemyFire(e);
-          e.fireCd = e.fire * (0.8 + Math.random()*0.55);
+          e.fireCd = e.fire * (0.9 + Math.random()*0.65);
         }
       }
-      this.enemies = this.enemies.filter(e => e.x > -90 && !e.dead);
+      this.enemies = this.enemies.filter(e => !e.dead && (this.bossMode ? e.x>-90&&e.x<aw+90&&e.y>-90&&e.y<ah+90 : e.x>-90));
 
       for (const s of this.enemyShots) {
         s.x += s.vx*dt; s.y += s.vy*dt;
@@ -388,18 +499,18 @@
           this.floatText(this.player.x+15, this.player.y-5, 'NEAR MISS +25', '#b6d7d0');
         }
       }
-      this.enemyShots = this.enemyShots.filter(s => s.x > -20 && s.x < C.W+20 && s.y > -20 && s.y < C.H+20);
+      this.enemyShots = this.enemyShots.filter(s => s.x > -30 && s.x < aw+30 && s.y > -30 && s.y < ah+30);
 
       for (const l of this.lasers) { l.x += l.vx*dt; l.life -= dt; }
-      this.lasers = this.lasers.filter(l => l.life > 0 && l.x < C.W+20 && l.pierce > 0);
+      this.lasers = this.lasers.filter(l => l.life > 0 && l.x < aw+30 && l.pierce > 0);
 
       for (const b of this.bombs) {
         b.x += b.vx*dt; b.vy += b.ay*dt; b.y += b.vy*dt; b.life -= dt;
       }
-      this.bombs = this.bombs.filter(b => b.life > 0 && b.y < C.H+18 && b.x < C.W+20);
+      this.bombs = this.bombs.filter(b => b.life > 0 && b.y < ah+24 && b.x < aw+30);
 
       for (const p of this.pickups) {
-        p.x -= worldSpeed*0.7*dt;
+        p.x -= (this.bossMode?35:worldSpeed*0.7)*dt;
         p.y += Math.sin((this.elapsed+p.phase)*3)*9*dt;
         p.life -= dt;
       }
@@ -413,7 +524,8 @@
       const ey = e.y + e.h/2;
       const dx = px-ex, dy = py-ey;
       const len = Math.max(1, Math.hypot(dx,dy));
-      const speed = e.type === 'elite' ? 185 : e.type === 'boss' ? 165 : 145;
+      const base = 102 + this.wanted*7;
+      const speed = e.type === 'elite' ? base+18 : e.type === 'boss' ? base+10 : base;
       if (e.type === 'riot' || e.type === 'boss') {
         const spreads = e.type === 'boss' ? [-0.24,0,0.24] : [-0.16,0.16];
         for (const a of spreads) {
@@ -448,7 +560,7 @@
           e.hp -= 1;
           l.pierce -= 1;
           this.spark(e.x, e.y+e.h/2, this.palette.laser, 8);
-          if (e.hp <= 0) this.destroyEnemy(e, j, 1);
+          if (e.hp <= 0) this.destroyEnemy(e, j, 1, true, 'laser');
           if (l.pierce <= 0) break;
         }
       }
@@ -479,7 +591,7 @@
       for (let i=this.enemies.length-1;i>=0;i--) {
         const e=this.enemies[i];
         if (M.overlap(p,e)) {
-          if (p.boost > 0) this.destroyEnemy(e,i,1.4);
+          if (p.boost > 0) this.destroyEnemy(e,i,1.4,true,'impact');
           else { this.damagePlayer(1); if (e.type !== 'boss') this.enemies.splice(i,1); }
         }
       }
@@ -502,7 +614,7 @@
       const chain = targets.length;
       for (const j of targets) {
         const e=this.enemies[j];
-        this.destroyEnemy(e,j,1 + Math.max(0,chain-1)*0.25, false);
+        this.destroyEnemy(e,j,1 + Math.max(0,chain-1)*0.25, false, 'bomb');
       }
       if (chain >= 2) {
         this.combo = Math.min(8, chain);
@@ -512,9 +624,13 @@
       }
     }
 
-    destroyEnemy(e,index,mult=1,allowDrop=true) {
+    destroyEnemy(e,index,mult=1,allowDrop=true,cause='impact') {
       if (!e || e.dead) return;
       e.dead = true;
+      this.deathGhosts.push({
+        x:e.x,y:e.y,w:e.w,h:e.h,type:e.type,phase:e.phase||0,cause,
+        life:cause==='bomb'?0.34:0.18,max:cause==='bomb'?0.34:0.18
+      });
       const oldKills=this.kills;
       this.kills += 1;
       const heartDelta = M.heartAwardsBetween(oldKills,this.kills);
@@ -524,11 +640,14 @@
       }
       this.score += (e.score||100) * mult * (this.player.boost>0?2:1);
       this.player.boostEnergy = M.clamp(this.player.boostEnergy + (e.type==='boss'?40:10),0,100);
-      this.explode(e.x+e.w/2,e.y+e.h/2,e.type==='boss'?36:18);
+      if (cause === 'bomb') this.plantExplosion(e.x+e.w/2,e.y+e.h/2,e.type==='boss'?58:28);
+      else this.explode(e.x+e.w/2,e.y+e.h/2,e.type==='boss'?36:18,cause === 'laser' ? this.palette.laser : null);
       if (allowDrop && e.type!=='boss' && Math.random()<0.17) this.spawnPickup(e.x,e.y);
       if (e.type==='boss') {
         this.score += 2200;
-        this.floatText(C.W*0.5,56,'COMMAND SHIP DOWN +2200','#f0c97a');
+        const aw=this.bossMode?C.W/this.bossScale:C.W;
+        this.floatText(aw*0.5,56,'COMMAND SHIP DOWN +2200','#f0c97a');
+        setTimeout(() => this.exitBossMode(), 450);
       }
       if (index >= 0 && this.enemies[index] === e) this.enemies.splice(index,1);
     }
@@ -620,11 +739,12 @@
       for(let i=0;i<n;i++) this.particles.push({x:this.player.x-2,y:this.player.y+11,vx:-90-Math.random()*80,vy:(Math.random()-.5)*30,life:.25+Math.random()*.25,max:.5,color:this.palette.plume,size:2+Math.random()*2});
     }
 
-    explode(x,y,n=18) {
+    explode(x,y,n=18,dominant=null) {
       if (this.settings.reducedFx) n=Math.min(n,10);
       for(let i=0;i<n;i++){
         const a=Math.random()*Math.PI*2, sp=35+Math.random()*120;
-        this.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.35+Math.random()*.4,max:.75,color:i%3===0?'#f0c46e':i%3===1?'#e67e7e':'#8ba7ba',size:2+Math.random()*3});
+        const color=dominant && i%4!==0 ? dominant : (i%3===0?'#f0c46e':i%3===1?'#e67e7e':'#8ba7ba');
+        this.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.35+Math.random()*.4,max:.75,color,size:2+Math.random()*3});
       }
       this.shake = this.settings.shake ? Math.max(this.shake,2.5) : 0;
     }
@@ -633,7 +753,8 @@
       if (!this.settings.reducedFx) {
         for(let i=0;i<32;i++){
           const a=Math.random()*Math.PI*2, sp=25+Math.random()*r*2.1;
-          this.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.55+Math.random()*.5,max:1.05,color:i%3===0?this.palette.bomb:'#91b88a',size:2+Math.random()*3});
+          const greens=[this.palette.bomb,'#77e38e','#3f9f5d','#a1d98e'];
+          this.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.55+Math.random()*.5,max:1.05,color:greens[i%greens.length],size:2+Math.random()*3});
         }
       }
       this.shake = this.settings.shake ? 4 : 0;
@@ -653,6 +774,8 @@
       this.particles=this.particles.filter(p=>p.life>0);
       for(const f of this.floaters){f.y-=16*dt;f.life-=dt;}
       this.floaters=this.floaters.filter(f=>f.life>0);
+      for(const g of this.deathGhosts) g.life-=dt;
+      this.deathGhosts=this.deathGhosts.filter(g=>g.life>0);
     }
 
     render() {
@@ -721,18 +844,120 @@
     }
 
     drawGameScene() {
+      const ctx=this.ctx;
+      this.drawPunchline();
+      if (this.bossMode) {
+        ctx.save();
+        ctx.scale(this.bossScale,this.bossScale);
+        this.drawWorldEntities();
+        ctx.restore();
+        this.drawHud();
+      } else {
+        this.drawWorldEntities();
+        this.drawHud();
+      }
+      this.drawLyrics();
+      if(this.state==='countdown')this.drawCountdown();
+    }
+
+    drawWorldEntities() {
       for(const g of this.gates)this.drawGate(g);
       for(const p of this.pickups)this.drawPickup(p);
       for(const b of this.bombs)this.drawBomb(b);
       for(const l of this.lasers)this.drawLaser(l);
       for(const s of this.enemyShots)this.drawEnemyShot(s);
       for(const e of this.enemies)this.drawUfo(e,1);
+      for(const g of this.deathGhosts)this.drawDeathGhost(g);
       for(const p of this.particles)this.drawParticle(p);
       const blink=this.player.invuln>0&&Math.floor(this.player.invuln*18)%2===0;
       if(!blink)this.drawPlayerSprite(this.player.x,this.player.y,1,false);
       for(const f of this.floaters)this.drawFloater(f);
-      this.drawHud();
-      if(this.state==='countdown')this.drawCountdown();
+    }
+
+    drawDeathGhost(g) {
+      const ctx=this.ctx,alpha=Math.max(0,g.life/g.max);
+      ctx.save();
+      ctx.globalAlpha=alpha;
+      if(g.cause==='laser'){
+        ctx.fillStyle=this.palette.laser;
+        ctx.fillRect(g.x,g.y+4,g.w,g.h-5);
+        ctx.fillRect(g.x+4,g.y,g.w-8,5);
+      } else if(g.cause==='bomb'){
+        ctx.fillStyle='#17351f';ctx.fillRect(g.x,g.y+4,g.w,g.h-5);
+        ctx.strokeStyle='#71d783';ctx.lineWidth=2;
+        ctx.beginPath();
+        ctx.moveTo(g.x+2,g.y+g.h);
+        ctx.lineTo(g.x+g.w*.35,g.y+g.h*.45);
+        ctx.lineTo(g.x+g.w*.52,g.y+2);
+        ctx.moveTo(g.x+g.w*.34,g.y+g.h*.48);
+        ctx.lineTo(g.x+g.w*.78,g.y+g.h*.25);
+        ctx.moveTo(g.x+g.w*.45,g.y+g.h*.65);
+        ctx.lineTo(g.x+g.w*.82,g.y+g.h);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    songTime() {
+      const t=this.audio&&this.audio.song?this.audio.song.currentTime:0;
+      return Number.isFinite(t)?t:this.elapsed;
+    }
+
+    currentLyric() {
+      if(!this.settings.lyrics||this.mode!=='song')return null;
+      const valid=C.lyrics.filter(l=>Number.isFinite(l.t));
+      const t=this.songTime();
+      let idx=-1;
+      for(let i=0;i<valid.length;i++){if(valid[i].t<=t)idx=i;else break;}
+      if(idx<0)return null;
+      const lyric=valid[idx],next=valid[idx+1];
+      return {lyric,next,t,progress:M.clamp((t-lyric.t)/Math.max(.6,(next?next.t:lyric.t+3)-lyric.t),0,1)};
+    }
+
+    drawLyrics() {
+      const data=this.currentLyric();if(!data)return;
+      const ctx=this.ctx,{lyric,progress}=data;
+      const maxW=C.W-34;
+      ctx.save();
+      ctx.font='6px "Press Start 2P", monospace';
+      ctx.textBaseline='middle';
+      const words=lyric.text.split(/\s+/);
+      const lines=[];let line=[];
+      for(const w of words){
+        const trial=[...line,w].join(' ');
+        if(ctx.measureText(trial).width>maxW&&line.length){lines.push(line);line=[w];}
+        else line.push(w);
+      }
+      if(line.length)lines.push(line);
+      const shown=lines.slice(0,2);
+      const y0=C.H-42-(shown.length-1)*7;
+      ctx.fillStyle='rgba(5,6,9,.68)';ctx.fillRect(12,y0-8,C.W-24,shown.length*14+3);
+      const totalWords=words.length,lit=Math.floor(progress*totalWords);
+      let seen=0;
+      shown.forEach((ln,row)=>{
+        const widths=ln.map(w=>ctx.measureText(w+' ').width);
+        const total=widths.reduce((a,b)=>a+b,0);
+        let x=(C.W-total)/2;
+        ln.forEach((w,i)=>{
+          ctx.fillStyle=seen<lit?'#f0d05f':'#eef0e8';
+          ctx.fillText(w,x,y0+row*14);
+          x+=widths[i];seen++;
+        });
+      });
+      ctx.restore();
+    }
+
+    drawPunchline() {
+      const data=this.currentLyric();if(!data||!data.lyric.punch)return;
+      const ctx=this.ctx,text=data.lyric.text.toUpperCase();
+      ctx.save();
+      ctx.font='18px "Press Start 2P", monospace';
+      const tw=ctx.measureText(text).width;
+      const x=C.W-(C.W+tw)*data.progress;
+      ctx.globalAlpha=.075;
+      ctx.fillStyle='#f0d05f';
+      ctx.fillText(text,x,72);
+      ctx.restore();
     }
 
     drawPlayerSprite(x,y,s=1,hero=false) {
@@ -781,7 +1006,7 @@
       if(e.type==='elite'){ctx.fillStyle='#845d8f';ctx.fillRect(1,hh*.5,3,2);ctx.fillRect(ww-4,hh*.5,3,2);}
       if(e.type==='boss'){
         ctx.fillStyle='#383e48';ctx.fillRect(8,hh-3,ww-16,3);ctx.fillStyle='#b46f78';ctx.fillRect(ww*.45,hh*.3,ww*.1,3);
-        const hp=Math.max(0,e.hp/18);ctx.fillStyle='#12151b';ctx.fillRect(8,-7,ww-16,3);ctx.fillStyle='#c06f78';ctx.fillRect(8,-7,(ww-16)*hp,3);
+        const hp=Math.max(0,e.hp/(e.maxHp||30));ctx.fillStyle='#12151b';ctx.fillRect(8,-7,ww-16,3);ctx.fillStyle='#c06f78';ctx.fillRect(8,-7,(ww-16)*hp,3);
       }
       ctx.restore();
     }
@@ -835,8 +1060,11 @@
       ctx.fillStyle='rgba(7,8,12,.72)';ctx.fillRect(6,6,138,30);ctx.fillStyle='#d9dde3';ctx.fillText(`SCORE ${Math.floor(this.score).toString().padStart(6,'0')}`,12,11);ctx.fillText(`KILLS ${this.kills}`,12,22);
       // hearts
       for(let i=0;i<this.hearts;i++)this.drawHeart(160+i*15,10);
-      // wanted
-      ctx.textAlign='right';ctx.fillStyle='#aeb6c0';ctx.fillText('PURSUIT',C.W-10,10);ctx.fillStyle='#d16e79';ctx.fillText('◆'.repeat(this.wanted),C.W-10,22);
+      // GTA-style five-star wanted meter
+      ctx.textAlign='right';ctx.fillStyle='#aeb6c0';ctx.fillText('WANTED',C.W-10,8);
+      ctx.font='13px sans-serif';ctx.fillStyle='#4f5660';ctx.fillText('★★★★★',C.W-10,19);
+      ctx.fillStyle='#e3c363';ctx.fillText('★'.repeat(this.wanted),C.W-10,19);
+      ctx.font='7px "Press Start 2P", monospace';
       // boost meter
       ctx.textAlign='left';ctx.fillStyle='rgba(7,8,12,.72)';ctx.fillRect(8,C.H-18,132,10);ctx.fillStyle='#303942';ctx.fillRect(12,C.H-15,118,4);ctx.fillStyle='#d7bd72';ctx.fillRect(12,C.H-15,118*(p.boostEnergy/100),4);ctx.fillStyle='#d9dde3';ctx.fillText('STARRDRIVE',145,C.H-18);
       // track progress
@@ -857,7 +1085,8 @@
       const ctx=this.ctx;const v=Math.ceil(this.countdown);
       ctx.fillStyle='rgba(8,8,12,.36)';ctx.fillRect(0,0,C.W,C.H);
       ctx.font='28px "Press Start 2P", monospace';ctx.textAlign='center';ctx.fillStyle='#f0e6c9';ctx.fillText(v>0?String(v):'GO',C.W/2,C.H/2-10);
-      ctx.font='7px "Press Start 2P", monospace';ctx.fillStyle='#a9b5b0';ctx.fillText('HOVER ENGINE ONLINE',C.W/2,C.H/2+20);
+      ctx.font='7px "Press Start 2P", monospace';ctx.fillStyle='#e0c86f';ctx.fillText('ALEAN! — MAX STARR',C.W/2,C.H/2+18);
+      ctx.fillStyle='#a9b5b0';ctx.fillText('HOVER ENGINE ONLINE',C.W/2,C.H/2+31);
     }
   }
 
