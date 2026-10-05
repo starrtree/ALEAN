@@ -56,7 +56,7 @@
         wantedDelay:18, wantedTimeStep:34, wantedKillStep:18,
         spawn:[0,1.55,1.24,0.98,0.76,0.58],
         fire:{scout:3.0,interceptor:2.2,riot:1.75,elite:1.35,boss:1.08},
-        bulletBase:98, eliteBulletBonus:14, bossBulletBonus:6,
+        bulletBase:98, bulletWantedStep:7, eliteBulletBonus:14, bossBulletBonus:6, worldSpeed:1,
         gateBase:5.8, gateStep:0.22, gateMin:3.8, gateGap:116, gateGapStep:4, gateWidth:23,
         bossHp:18, bossDroneBase:1.85, bossDroneStep:0.08, bossDroneMin:1.0, bossDroneSpeed:0.78
       },
@@ -67,7 +67,7 @@
         wantedDelay:0, wantedTimeStep:28, wantedKillStep:16,
         spawn:[0,1.15,0.92,0.74,0.58,0.44],
         fire:{scout:2.2,interceptor:1.55,riot:1.22,elite:0.94,boss:0.72},
-        bulletBase:145, eliteBulletBonus:40, bossBulletBonus:20,
+        bulletBase:145, bulletWantedStep:0, eliteBulletBonus:40, bossBulletBonus:20, worldSpeed:1,
         gateBase:5.1, gateStep:0.24, gateMin:3.2, gateGap:88, gateGapStep:3, gateWidth:28,
         bossHp:30, bossDroneBase:1.5, bossDroneStep:0.10, bossDroneMin:0.72, bossDroneSpeed:1.0
       },
@@ -78,7 +78,7 @@
         wantedDelay:0, wantedTimeStep:18, wantedKillStep:10,
         spawn:[0,0.82,0.66,0.52,0.40,0.31],
         fire:{scout:1.55,interceptor:1.06,riot:0.82,elite:0.62,boss:0.44},
-        bulletBase:178, eliteBulletBonus:42, bossBulletBonus:30,
+        bulletBase:178, bulletWantedStep:10, eliteBulletBonus:42, bossBulletBonus:30, worldSpeed:1.28,
         gateBase:4.25, gateStep:0.26, gateMin:2.55, gateGap:78, gateGapStep:3, gateWidth:30,
         bossHp:42, bossDroneBase:1.0, bossDroneStep:0.10, bossDroneMin:0.46, bossDroneSpeed:1.22
       }
