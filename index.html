@@ -18,6 +18,7 @@
 
       <button id="soundGate" class="sound-gate hidden" type="button" aria-hidden="true">PRESS ANY BUTTON</button>
       <button id="pauseButton" class="pause-fab" type="button" aria-label="Pause">Ⅱ</button>
+      <button id="ccButton" class="cc-fab hidden" type="button" aria-label="Toggle live lyrics" aria-pressed="true">CC</button>
 
       <div id="overlay" class="overlay">
         <section id="homeScreen" class="screen active home-screen">
@@ -62,8 +63,8 @@
             <div class="info-card"><b>PURPLE LASER</b><p>F by default — fast precision shot. A direct kill flashes the police UFO purple before it breaks apart. Remap it in Settings.</p></div>
             <div class="info-card"><b>NEUROVINE BOMB</b><p>E by default — gravity-driven biological bomb. A hit grows green vines through the target, detonates, and chain-destroys nearby UFOs. Remap it in Settings.</p></div>
             <div class="info-card"><b>STARRDRIVE</b><p>SHIFT / X — spend 50 boost energy for speed, invulnerability and x2 scoring. Near-misses and kills recharge it.</p></div>
-            <div class="info-card"><b>HEARTS</b><p>You begin with 3. Every 3 police UFOs destroyed awards an extra heart, up to the life cap.</p></div>
-            <div class="info-card"><b>POWER-UPS</b><p>Phase Shield, Police Jammer, Gravity Snare, Laser Hypercharge, Repair Heart, StarrSeed and Boost Cell.</p></div>
+            <div class="info-card"><b>HEARTS</b><p>You begin with 3. The only way to earn a heart back is to land a direct Neurovine bomb hit on a police UFO. Lasers do not heal you. Crashing into a building costs 2 hearts.</p></div>
+            <div class="info-card"><b>POWER-UPS</b><p>Phase Shield, Police Jammer, Gravity Snare, Laser Hypercharge, StarrSeed and Boost Cell.</p></div>
             <div class="info-card"><b>5-STAR PURSUIT</b><p>The chase starts light. Each GTA-style star raises police density, fire rate, enemy classes, and pressure.</p></div>
             <div class="info-card"><b>MOTHERSHIP BOSS</b><p>Deep into the run the camera pulls back, gravity shuts off, and the game becomes a free-flight arena. Use WASD / arrows to fly in any direction while police drones attack from every side.</p></div>
           </div>
@@ -102,7 +103,7 @@
             <label class="toggle">MUTE ALL <input id="muteToggle" type="checkbox" /></label>
             <label class="toggle">SCREEN SHAKE <input id="shakeToggle" type="checkbox" /></label>
             <label class="toggle">REDUCED PARTICLES <input id="fxToggle" type="checkbox" /></label>
-            <label class="toggle">LIVE LYRICS <input id="lyricsToggle" type="checkbox" /></label>
+            <label class="toggle">LIVE LYRICS / CC <input id="lyricsToggle" type="checkbox" /></label>
             <label>LASER KEY <button id="laserKeyBtn" type="button" class="keybind-btn">F</button></label>
             <label>BOMB KEY <button id="bombKeyBtn" type="button" class="keybind-btn">E</button></label>
             <label>BOOST KEY <button id="boostKeyBtn" type="button" class="keybind-btn">SHIFT</button></label>
