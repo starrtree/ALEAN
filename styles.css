@@ -27,3 +27,16 @@ button,a,input{font:inherit}.shell{width:min(1120px,96vw)}.game-frame{position:r
 #bossDownBtn{grid-column:2;grid-row:2}
 #bossRightBtn{grid-column:3;grid-row:2}
 @media(max-width:760px){.boss-pad{left:8px;bottom:8px;grid-template-columns:repeat(3,40px);grid-template-rows:repeat(2,40px)}.boss-pad button{font-size:13px}.song-credit{font-size:7px}}
+
+.difficulty-picker{display:grid;grid-template-columns:auto repeat(3,1fr);gap:7px;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid #343a43}
+.difficulty-picker span{font-size:8px;color:#a6adb4;margin-right:4px}
+.difficulty-picker button{padding:9px 8px!important;text-align:center!important;font-size:7px}
+.difficulty-picker button.selected{background:#34372a!important;border-color:#d3bc69!important;color:#f0e7c9!important;box-shadow:0 0 0 1px #6e653f inset}
+.difficulty-picker button[data-difficulty="hard"].selected{background:#3a2025!important;border-color:#cf6d78!important;color:#ffdce0!important}
+.boss-brief-screen{border-color:#a66c76;box-shadow:0 0 0 2px #402329,0 20px 80px #000d}
+.boss-brief-screen h3{color:#f0d1d6;text-shadow:2px 2px #3c2026}
+.boss-difficulty{font-size:9px;color:#e3c363;letter-spacing:.5px}
+.boss-control-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.boss-control-grid>div{border:1px solid #48515d;background:#151a22;padding:10px;display:flex;flex-direction:column;gap:7px}
+.boss-control-grid b{font-size:8px;color:#a7c4b2}.boss-control-grid span{font-size:10px;color:#e7e9ed}
+@media(max-width:760px){.difficulty-picker{grid-template-columns:1fr 1fr}.difficulty-picker span{grid-column:1/-1}.boss-control-grid{grid-template-columns:1fr 1fr}}
