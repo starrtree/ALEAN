@@ -11,6 +11,8 @@
   const screens = [...document.querySelectorAll('.screen')];
   const soundGate = document.getElementById('soundGate');
   const mobile = document.getElementById('mobileControls');
+  const bossPad = document.getElementById('bossPad');
+  const flapBtn = document.getElementById('flapBtn');
 
   function show(id) {
     screens.forEach(s => s.classList.toggle('active', s.id === id));
@@ -71,6 +73,21 @@
     }, { passive:false }));
   });
 
+  const directionMap = {
+    bossUpBtn:'up', bossLeftBtn:'left', bossDownBtn:'down', bossRightBtn:'right'
+  };
+  Object.entries(directionMap).forEach(([id, direction]) => {
+    const el = document.getElementById(id);
+    const on = e => { e.preventDefault(); game.setBossDirection(direction, true); };
+    const off = e => { e.preventDefault(); game.setBossDirection(direction, false); };
+    el.addEventListener('pointerdown', on, { passive:false });
+    el.addEventListener('pointerup', off, { passive:false });
+    el.addEventListener('pointercancel', off, { passive:false });
+    el.addEventListener('pointerleave', off, { passive:false });
+    el.addEventListener('touchstart', on, { passive:false });
+    el.addEventListener('touchend', off, { passive:false });
+  });
+
   // Stream links.
   document.querySelectorAll('[data-stream]').forEach(a => {
     a.addEventListener('click', e => {
@@ -128,6 +145,27 @@
   const muteToggle = document.getElementById('muteToggle');
   const shakeToggle = document.getElementById('shakeToggle');
   const fxToggle = document.getElementById('fxToggle');
+  const lyricsToggle = document.getElementById('lyricsToggle');
+  const paletteSelect = document.getElementById('paletteSelect');
+  const keybindHint = document.getElementById('keybindHint');
+  const keyButtons = {
+    laser: document.getElementById('laserKeyBtn'),
+    bomb: document.getElementById('bombKeyBtn'),
+    boost: document.getElementById('boostKeyBtn')
+  };
+  let waitingForKey = null;
+
+  C.palettes.forEach(p => {
+    const option=document.createElement('option');
+    option.value=p.key; option.textContent=p.name;
+    paletteSelect.appendChild(option);
+  });
+
+  function prettyKey(k) {
+    if (!k) return '';
+    if (k === ' ') return 'SPACE';
+    return String(k).toUpperCase();
+  }
 
   function syncSettings() {
     musicSlider.value = audio.musicVolume;
@@ -136,6 +174,12 @@
     muteToggle.checked = audio.muted;
     shakeToggle.checked = game.settings.shake;
     fxToggle.checked = game.settings.reducedFx;
+    lyricsToggle.checked = game.settings.lyrics;
+    paletteSelect.value = game.paletteKey;
+    Object.entries(keyButtons).forEach(([action,btn]) => {
+      btn.textContent = prettyKey(game.keybinds[action]);
+      btn.classList.toggle('listening', waitingForKey === action);
+    });
   }
 
   [musicSlider,engineSlider,sfxSlider].forEach(el => el.addEventListener('input', () => {
@@ -150,9 +194,55 @@
     game.settings.reducedFx = fxToggle.checked;
     localStorage.setItem('alean_reduced_fx', game.settings.reducedFx ? '1' : '0');
   });
+  lyricsToggle.addEventListener('change', () => {
+    game.settings.lyrics = lyricsToggle.checked;
+    localStorage.setItem('alean_lyrics', game.settings.lyrics ? '1' : '0');
+  });
+  paletteSelect.addEventListener('change', () => {
+    game.setPalette(paletteSelect.value);
+    renderGarage();
+  });
+
+  Object.entries(keyButtons).forEach(([action,btn]) => btn.addEventListener('click', () => {
+    waitingForKey = action;
+    keybindHint.textContent = `Press a key for ${action.toUpperCase()} — ESC cancels. WASD / arrows are reserved for boss flight.`;
+    syncSettings();
+  }));
+
+  window.addEventListener('keydown', e => {
+    if (!waitingForKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.key === 'Escape') {
+      waitingForKey = null;
+      keybindHint.textContent = 'Key change cancelled.';
+      syncSettings();
+      return;
+    }
+    const k = e.key === ' ' ? 'Space' : e.key;
+    const reserved = ['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','space'];
+    if (reserved.includes(String(k).toLowerCase())) {
+      keybindHint.textContent = 'That key is reserved for movement / hover. Pick another key.';
+      return;
+    }
+    game.setKeybind(waitingForKey, k);
+    keybindHint.textContent = `${waitingForKey.toUpperCase()} mapped to ${prettyKey(k)}.`;
+    waitingForKey = null;
+    syncSettings();
+  }, true);
 
   window.addEventListener('alean:runstart', () => {
     show(null); mobile.classList.remove('hidden');
+    bossPad.classList.add('hidden');
+    flapBtn.style.display = '';
+  });
+  window.addEventListener('alean:bossstart', () => {
+    bossPad.classList.remove('hidden');
+    flapBtn.style.display = 'none';
+  });
+  window.addEventListener('alean:bossend', () => {
+    bossPad.classList.add('hidden');
+    flapBtn.style.display = '';
   });
   window.addEventListener('alean:paused', () => show('pauseScreen'));
   window.addEventListener('alean:resumed', () => show(null));
@@ -170,6 +260,7 @@
     document.getElementById('resultsKills').textContent = d.kills;
     document.getElementById('resultsChain').textContent = `x${d.chain}`;
     document.getElementById('resultsTime').textContent = formatTime(d.time);
+    document.getElementById('resultsBest').textContent = Math.floor(d.records.bestScore).toLocaleString();
     show('resultsScreen');
   });
 

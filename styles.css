@@ -14,3 +14,16 @@ button,a,input{font:inherit}.shell{width:min(1120px,96vw)}.game-frame{position:r
 .footer-strip{display:flex;justify-content:space-between;align-items:center;margin-top:13px;color:#747d85;font-size:7px}.footer-strip button{padding:8px;font-size:7px}
 @media(max-width:760px){body{padding:6px}.main-menu{grid-template-columns:1fr}.home-screen{max-width:86%;padding:14px}.palette-grid{grid-template-columns:repeat(2,1fr)}.two-col{grid-template-columns:1fr}.record-grid{grid-template-columns:repeat(2,1fr)}.stream-grid{grid-template-columns:1fr}.primary-link{grid-column:auto}.settings-list label{grid-template-columns:1fr}.right-controls{grid-template-columns:repeat(3,56px)}.right-controls button{height:46px}.footer-strip{display:none}}
 @media(hover:hover) and (pointer:fine){.mobile-controls{display:none!important}}
+
+.song-credit{margin:0 0 8px;color:#e7cf79;font-size:8px;letter-spacing:.5px}
+.keybind-btn{min-width:110px;text-align:center!important;text-transform:uppercase}
+.keybind-btn.listening{border-color:#d7bd72!important;color:#f3dfa0!important;background:#2b2619!important}
+.settings-list select{width:100%;min-height:40px;background:#141922;color:#d9dde3;border:1px solid #4d5661;padding:8px;font:inherit}
+.boss-pad{position:absolute;left:14px;bottom:10px;display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(2,44px);gap:4px;pointer-events:auto}
+.boss-pad.hidden{display:none}
+.boss-pad button{border:1px solid #68737e;background:#151b23d9;color:#e5e8ed;font-size:15px;touch-action:none;user-select:none}
+#bossUpBtn{grid-column:2;grid-row:1}
+#bossLeftBtn{grid-column:1;grid-row:2}
+#bossDownBtn{grid-column:2;grid-row:2}
+#bossRightBtn{grid-column:3;grid-row:2}
+@media(max-width:760px){.boss-pad{left:8px;bottom:8px;grid-template-columns:repeat(3,40px);grid-template-rows:repeat(2,40px)}.boss-pad button{font-size:13px}.song-credit{font-size:7px}}
