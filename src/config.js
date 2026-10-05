@@ -2,6 +2,9 @@
   'use strict';
 
   const ASSET = './public/assets/audio/';
+  const MOBILE_PORTRAIT = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  const VIEW_W = MOBILE_PORTRAIT ? 216 : 384;
+  const VIEW_H = MOBILE_PORTRAIT ? 384 : 216;
 
   const palettes = [
     { key:'BIO_LUMEN', name:'BIO-LUMEN', lore:'Living light grown inside engineered tissue.', hull:'#13262b', hull2:'#0b1519', accent:'#7de3a1', plume:'#a6f8c8', laser:'#b46cff', bomb:'#77d89b' },
@@ -19,9 +22,10 @@
   ];
 
   const config = {
-    W: 384,
-    H: 216,
-    PLAYER_X: 88,
+    W: VIEW_W,
+    H: VIEW_H,
+    PLAYER_X: MOBILE_PORTRAIT ? 42 : 88,
+    mobilePortrait: MOBILE_PORTRAIT,
     gravity: 780,
     flapVelocity: -210,
     maxFall: 310,
