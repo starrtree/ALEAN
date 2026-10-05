@@ -89,9 +89,8 @@
       {t:117,text:'Float on that beat like a butterfly, But I turned up the sting',punch:true},
       {t:121,text:'Can\'t tell me that you not a vegan, Clearly you don\'t want no beef'},
       {t:125,text:'This trigger finger will light you up, Do you wanna meet ET?',punch:true},
-      {t:130,text:'I just feel like that purple drink'},
-      {t:null,text:'The way I can make them lean, Make \'em forget what they seen',ambiguous:'Provided as 2:01 after the 2:10 line; needs corrected timestamp.'},
-      {t:134.5,text:'MIB Man I Been alien!',punch:true}
+      {t:130,text:'I just feel like that purple drink, The way I can make them lean'},
+      {t:132.5,text:'Make \'em forget what they seen, M.I.B. Man I Been alien!',punch:true}
     ],
     palettes
   };
