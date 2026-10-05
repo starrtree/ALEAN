@@ -22,8 +22,8 @@
     W: 384,
     H: 216,
     PLAYER_X: 88,
-    gravity: 720,
-    flapVelocity: -250,
+    gravity: 780,
+    flapVelocity: -210,
     maxFall: 310,
     maxHearts: 8,
     startingHearts: 3,
@@ -47,6 +47,41 @@
       laser: 'f',
       bomb: 'e',
       boost: 'Shift'
+    },
+    difficulties: {
+      easy: {
+        label:'EASY',
+        description:'Fast chase, forgiving openings, easier boss.',
+        gravity:780, flapVelocity:-210, maxFall:300,
+        wantedDelay:18, wantedTimeStep:34, wantedKillStep:18,
+        spawn:[0,1.55,1.24,0.98,0.76,0.58],
+        fire:{scout:3.0,interceptor:2.2,riot:1.75,elite:1.35,boss:1.08},
+        bulletBase:98, eliteBulletBonus:14, bossBulletBonus:6,
+        gateBase:5.8, gateStep:0.22, gateMin:3.8, gateGap:116, gateGapStep:4, gateWidth:23,
+        bossHp:18, bossDroneBase:1.85, bossDroneStep:0.08, bossDroneMin:1.0, bossDroneSpeed:0.78
+      },
+      medium: {
+        label:'MEDIUM',
+        description:'Original v2 pursuit pressure before the easier rebalance.',
+        gravity:780, flapVelocity:-210, maxFall:310,
+        wantedDelay:0, wantedTimeStep:28, wantedKillStep:16,
+        spawn:[0,1.15,0.92,0.74,0.58,0.44],
+        fire:{scout:2.2,interceptor:1.55,riot:1.22,elite:0.94,boss:0.72},
+        bulletBase:145, eliteBulletBonus:40, bossBulletBonus:20,
+        gateBase:5.1, gateStep:0.24, gateMin:3.2, gateGap:88, gateGapStep:3, gateWidth:28,
+        bossHp:30, bossDroneBase:1.5, bossDroneStep:0.10, bossDroneMin:0.72, bossDroneSpeed:1.0
+      },
+      hard: {
+        label:'HARD',
+        description:'Very fast pursuit, tight gaps, heavy fire, aggressive mothership.',
+        gravity:805, flapVelocity:-218, maxFall:335,
+        wantedDelay:0, wantedTimeStep:18, wantedKillStep:10,
+        spawn:[0,0.82,0.66,0.52,0.40,0.31],
+        fire:{scout:1.55,interceptor:1.06,riot:0.82,elite:0.62,boss:0.44},
+        bulletBase:178, eliteBulletBonus:42, bossBulletBonus:30,
+        gateBase:4.25, gateStep:0.26, gateMin:2.55, gateGap:78, gateGapStep:3, gateWidth:30,
+        bossHp:42, bossDroneBase:1.0, bossDroneStep:0.10, bossDroneMin:0.46, bossDroneSpeed:1.22
+      }
     },
     lyrics: [
       {t:1,text:'Yeah oh oh'},
@@ -103,14 +138,18 @@
     heartAwardsBetween(oldKills, newKills) {
       return Math.max(0, Math.floor(newKills / 3) - Math.floor(oldKills / 3));
     },
-    wantedLevel(elapsed, kills) {
-      // Keep the opening fast but readable: stars rise from survival + aggression, not immediately.
-      const timeStars = Math.floor(Math.max(0, elapsed - 18) / 34);
-      const killStars = Math.floor(kills / 18);
+    difficultyConfig(key) {
+      return config.difficulties[key] || config.difficulties.easy;
+    },
+    wantedLevel(elapsed, kills, difficulty='easy') {
+      const d = this.difficultyConfig(difficulty);
+      const timeStars = Math.floor(Math.max(0, elapsed - d.wantedDelay) / d.wantedTimeStep);
+      const killStars = Math.floor(kills / d.wantedKillStep);
       return Math.min(5, 1 + timeStars + killStars);
     },
-    spawnInterval(level) {
-      return [0, 1.55, 1.24, 0.98, 0.76, 0.58][Math.max(1, Math.min(5, level))];
+    spawnInterval(level, difficulty='easy') {
+      const d = this.difficultyConfig(difficulty);
+      return d.spawn[Math.max(1, Math.min(5, level))];
     }
   };
 
