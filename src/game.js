@@ -518,7 +518,7 @@
 
     updateWorld(dt) {
       const speedMul = this.player.boost > 0 ? 1.55 : 1;
-      const worldSpeed = (76 + this.wanted*8) * speedMul;
+      const worldSpeed = (76 + this.wanted*8) * speedMul * this.difficultyConfig.worldSpeed;
       const aw=this.bossMode?C.W/this.bossScale:C.W;
       const ah=this.bossMode?C.H/this.bossScale:C.H;
 
@@ -594,7 +594,7 @@
       const dx = px-ex, dy = py-ey;
       const len = Math.max(1, Math.hypot(dx,dy));
       const d=this.difficultyConfig;
-      const base = d.bulletBase + this.wanted*(this.difficulty==='hard'?10:7);
+      const base = d.bulletBase + this.wanted*d.bulletWantedStep;
       const speed = e.type === 'elite' ? base+d.eliteBulletBonus : e.type === 'boss' ? base+d.bossBulletBonus : base;
       if (e.type === 'riot' || e.type === 'boss') {
         const spreads = e.type === 'boss' ? [-0.24,0,0.24] : [-0.16,0.16];
