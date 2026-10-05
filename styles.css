@@ -163,3 +163,5 @@ html.mobile-portrait .stream-grid{
 html.mobile-portrait .settings-list label{
   grid-template-columns:1fr;
 }
+
+html.mobile-portrait .mobile-controls.hidden{display:none!important}
