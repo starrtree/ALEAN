@@ -34,6 +34,7 @@
       engineIntro: ASSET + 'HOVER-ENGINE_intro.m4a',
       engineLoop: ASSET + 'HOVER-ENGINE_loop.m4a',
       boss: ASSET + 'bitty-boss-fight-soudntrack.mp3',
+      bossLoopEnd: 38,
       laser: ASSET + 'laser.mp3',
       bomb: ASSET + 'gameboy_pluck.mp3'
     },
