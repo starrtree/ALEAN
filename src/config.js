@@ -27,6 +27,7 @@
     maxFall: 310,
     maxHearts: 8,
     startingHearts: 3,
+    buildingDamage: 2,
     audio: {
       song: ASSET + 'ALEAN.m4a',
       menu: ASSET + 'ALEAN_Menu.m4a',
@@ -150,8 +151,8 @@
     overlap(a, b) {
       return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
     },
-    heartAwardsBetween(oldKills, newKills) {
-      return Math.max(0, Math.floor(newKills / 3) - Math.floor(oldKills / 3));
+    neurovineHeartReward(currentHearts, maxHearts=config.maxHearts) {
+      return currentHearts < maxHearts ? 1 : 0;
     },
     difficultyConfig(key) {
       return config.difficulties[key] || config.difficulties.easy;
