@@ -308,11 +308,13 @@
     mobile.classList.remove('hidden');
     bossPad.classList.remove('hidden');
     flapBtn.style.display = 'none';
-    ccButton.classList.remove('hidden');
+    ccButton.classList.add('hidden');
   });
   window.addEventListener('alean:bossend', () => {
     bossPad.classList.add('hidden');
     flapBtn.style.display = '';
+    ccButton.classList.remove('hidden');
+    syncLyricsControls();
   });
   window.addEventListener('alean:paused', () => show('pauseScreen'));
   window.addEventListener('alean:resumed', () => show(null));
