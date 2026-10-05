@@ -304,12 +304,33 @@
       this.emitTrail(3);
     }
 
+    nearestEnemy() {
+      let best=null,bestD=Infinity;
+      for(const e of this.enemies){
+        if(e.dead)continue;
+        const dx=(e.x+e.w/2)-(this.player.x+this.player.w/2);
+        const dy=(e.y+e.h/2)-(this.player.y+this.player.h/2);
+        const d=dx*dx+dy*dy;
+        if(d<bestD){bestD=d;best=e;}
+      }
+      return best;
+    }
+
     fireLaser() {
       const p = this.player;
       if (p.laserCd > 0) return;
       p.laserCd = this.hyper > 0 ? 0.08 : 0.16;
       const piercing = this.hyper > 0 ? 3 : 1;
-      this.lasers.push({ x:p.x+p.w-1, y:p.y+8, w:11, h:3, vx:390, life:1.25, pierce:piercing });
+      let vx=390,vy=0;
+      if(this.bossMode){
+        const target=this.nearestEnemy();
+        if(target){
+          const dx=(target.x+target.w/2)-(p.x+p.w/2),dy=(target.y+target.h/2)-(p.y+p.h/2);
+          const len=Math.max(1,Math.hypot(dx,dy));
+          vx=dx/len*420;vy=dy/len*420;
+        }
+      }
+      this.lasers.push({ x:p.x+p.w-1, y:p.y+8, w:11, h:3, vx, vy, life:1.25, pierce:piercing });
       this.audio.playLaser();
     }
 
@@ -317,7 +338,17 @@
       const p = this.player;
       if (p.bombCd > 0) return;
       p.bombCd = 0.56;
-      this.bombs.push({ x:p.x+p.w-4, y:p.y+11, w:7, h:7, vx:165, vy:-72, ay:360, life:2.2 });
+      let vx=165,vy=-72,ay=360;
+      if(this.bossMode){
+        const target=this.nearestEnemy();
+        ay=0;
+        if(target){
+          const dx=(target.x+target.w/2)-(p.x+p.w/2),dy=(target.y+target.h/2)-(p.y+p.h/2);
+          const len=Math.max(1,Math.hypot(dx,dy));
+          vx=dx/len*220;vy=dy/len*220;
+        }
+      }
+      this.bombs.push({ x:p.x+p.w-4, y:p.y+11, w:7, h:7, vx, vy, ay, life:2.2 });
       this.audio.playBomb();
     }
 
@@ -501,7 +532,7 @@
       }
       this.enemyShots = this.enemyShots.filter(s => s.x > -30 && s.x < aw+30 && s.y > -30 && s.y < ah+30);
 
-      for (const l of this.lasers) { l.x += l.vx*dt; l.life -= dt; }
+      for (const l of this.lasers) { l.x += l.vx*dt; l.y += (l.vy||0)*dt; l.life -= dt; }
       this.lasers = this.lasers.filter(l => l.life > 0 && l.x < aw+30 && l.pierce > 0);
 
       for (const b of this.bombs) {
